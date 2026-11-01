@@ -82,16 +82,21 @@ VietnamPhone? readOptionalPhone(Map<String, Object?> body) {
   }
 }
 
-/// IP của client. Khi [trustProxy] bật (chạy sau Cloud Run/Nginx) thì lấy IP đầu tiên trong
-/// `X-Forwarded-For`.
+/// IP của client. Khi [trustProxy] bật (chạy sau Render/Nginx) thì đọc từ header của proxy.
 String clientIp(RequestContext context, {required bool trustProxy}) {
-  if (trustProxy) {
-    final forwarded = context.request.headers['x-forwarded-for'];
-    if (forwarded != null && forwarded.trim().isNotEmpty) {
-      return forwarded.split(',').first.trim();
-    }
-  }
-  return context.request.connectionInfo.remoteAddress.address;
+  final proxied = trustProxy ? proxiedClientIp(context.request.headers) : null;
+  return proxied ?? context.request.connectionInfo.remoteAddress.address;
+}
+
+/// IP do proxy ghi nhận. Không lấy giá trị đầu của `X-Forwarded-For` vì client tự gửi được
+/// (đổi giá trị mỗi lần là né được giới hạn theo IP): dùng `CF-Connecting-IP` do Cloudflare trước
+/// Render ghi đè, nếu không có thì lấy giá trị cuối, tức do proxy gần nhất thêm vào.
+String? proxiedClientIp(Map<String, String> headers) {
+  final cloudflare = headers['cf-connecting-ip']?.trim();
+  if (cloudflare != null && cloudflare.isNotEmpty) return cloudflare;
+  final forwarded = headers['x-forwarded-for'];
+  if (forwarded == null || forwarded.trim().isEmpty) return null;
+  return forwarded.split(',').last.trim();
 }
 
 /// Chỉ cho phép các phương thức trong [allowed].
