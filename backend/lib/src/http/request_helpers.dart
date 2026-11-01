@@ -1,22 +1,34 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:campus_core/campus_core.dart';
 import 'package:dart_frog/dart_frog.dart';
 
 import 'api_exception.dart';
 
-/// Đọc body JSON dạng object. Ném [ApiException] 400 nếu sai định dạng.
-Future<Map<String, Object?>> readJsonObject(Request request) async {
-  final String raw;
+/// Đọc body, dừng ngay khi vượt [maxBytes] để request khổng lồ không chiếm hết bộ nhớ máy chủ.
+Future<String> readBody(Request request, {required int maxBytes, String tooLarge = 'Dữ liệu gửi lên quá lớn.'}) async {
+  ApiException error() => ApiException(HttpStatus.requestEntityTooLarge, 'payload_too_large', tooLarge);
+  final declared = int.tryParse(request.headers[HttpHeaders.contentLengthHeader] ?? '');
+  if (declared != null && declared > maxBytes) throw error();
+  final bytes = BytesBuilder(copy: false);
   try {
-    raw = await request.body();
+    await for (final chunk in request.bytes()) {
+      bytes.add(chunk);
+      if (bytes.length > maxBytes) throw error();
+    }
+    return utf8.decode(bytes.takeBytes());
+  } on ApiException {
+    rethrow;
   } on Object {
     throw ApiException.badRequest('Không đọc được dữ liệu gửi lên.');
   }
-  if (raw.length > 64 * 1024) {
-    throw ApiException(HttpStatus.requestEntityTooLarge, 'payload_too_large', 'Dữ liệu gửi lên quá lớn.');
-  }
+}
+
+/// Đọc body JSON dạng object. Ném [ApiException] 400 nếu sai định dạng.
+Future<Map<String, Object?>> readJsonObject(Request request) async {
+  final raw = await readBody(request, maxBytes: 64 * 1024);
   if (raw.trim().isEmpty) return {};
   try {
     final decoded = jsonDecode(raw);

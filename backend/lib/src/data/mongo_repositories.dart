@@ -190,7 +190,9 @@ class MongoUserRepository implements UserRepository {
 
   @override
   Future<void> addFcmToken(String uid, String token) async {
-    await removeFcmToken(uid, token);
+    // Máy này có thể chưa kịp huỷ token của người dùng trước (phiên hết hạn, mất mạng khi đăng xuất):
+    // gỡ khỏi mọi tài khoản để sinh viên đăng nhập máy cũ của bảo vệ không nhận cảnh báo sự cố.
+    await _store.run(_name, (c) => c.updateMany(where.eq('fcmTokens', token), modify.pull('fcmTokens', token)));
     await _store.run(
       _name,
       (c) => c.updateOne(where.eq('_id', uid), {

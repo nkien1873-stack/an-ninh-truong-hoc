@@ -44,6 +44,8 @@ Stream<T> pollApi<T>(
       final status = e.statusCode ?? 0;
       final clientError = status >= 400 && status < 500;
       if (!controller.isClosed && (last == null || clientError)) controller.addError(e, st);
+      // Lần sau dữ liệu trở lại y hệt (vd. quản trị mở khoá) vẫn phải phát để màn hình thoát lỗi.
+      if (clientError) last = null;
     } finally {
       loading = false;
       if (again) {

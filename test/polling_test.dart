@@ -86,6 +86,26 @@ void main() {
     await sub.cancel();
   });
 
+  test('hết lỗi quyền mà dữ liệu y hệt thì vẫn phát lại để thoát màn lỗi', () async {
+    final api = client();
+    final seen = <Object?>[];
+    final sub = pollApi(api, '/a', (j) => j['n'], every: const Duration(hours: 1)).listen(seen.add, onError: (_) {});
+    await settle();
+
+    status = 403;
+    final old = body;
+    body = {'error': {'code': 'x', 'message': 'm'}};
+    api.notifyChanged();
+    await settle();
+
+    status = 200;
+    body = old;
+    api.notifyChanged();
+    await settle();
+    expect(seen, [1, 1]);
+    await sub.cancel();
+  });
+
   test('huỷ lắng nghe thì dừng tải', () async {
     final api = client();
     final sub = pollApi(api, '/a', (j) => j['n'], every: const Duration(milliseconds: 5)).listen((_) {});

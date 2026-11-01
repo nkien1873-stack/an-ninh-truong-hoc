@@ -14,11 +14,8 @@ Future<Response> onRequest(RequestContext context) async {
 Future<Response> _upload(RequestContext context) async {
   final services = context.read<AppServices>();
   services.limits.check(services.limits.images, context.read<UserRecord>().uid, 'tải ảnh');
-  final raw = await context.request.body();
   // Ảnh tối đa 700 KB, base64 khoảng 940 KB: cho phép body tới 1,2 MB.
-  if (raw.length > 1200 * 1024) {
-    throw ApiException(HttpStatus.requestEntityTooLarge, 'payload_too_large', 'Ảnh quá lớn.');
-  }
+  final raw = await readBody(context.request, maxBytes: 1200 * 1024, tooLarge: 'Ảnh quá lớn.');
   final Object? json;
   try {
     json = jsonDecode(raw);

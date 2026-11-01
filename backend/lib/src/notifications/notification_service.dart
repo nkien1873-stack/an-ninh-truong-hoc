@@ -87,7 +87,7 @@ class NotificationService {
       final staff = await _safe(_users.listStaff, const <UserRecord>[], 'đọc danh sách bảo vệ');
       targets = report.assigneeUid != null
           ? staff.where((u) => u.uid == report.assigneeUid).toList()
-          : staff.where((u) => u.role == UserRole.guard && u.onDuty).toList();
+          : staff.where((u) => u.onDuty || u.role == UserRole.admin).toList();
     } else {
       targets = [?await _safe(() => _users.byId(reporter.uid), null, 'đọc hồ sơ người báo')];
     }

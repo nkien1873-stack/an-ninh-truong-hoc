@@ -9,6 +9,15 @@ class _FlakyUsers extends MemoryUserRepository {
   Future<List<UserRecord>> listStaff() => throw StateError('CSDL không truy cập được');
 }
 
+class _ConflictReports extends MemoryReportRepository {
+  @override
+  Future<(ReportRecord, ReporterPrivate)> mutate(
+    String id,
+    (ReportRecord, ReportEvent?) Function(ReportRecord current, ReporterPrivate reporter) apply,
+  ) =>
+      throw StateError('report_write_conflict');
+}
+
 void main() {
   late TestClock clock;
   late MemoryUserRepository users;
@@ -207,6 +216,26 @@ void main() {
     final created = reports.events[report.id]!.single;
     expect(created.actorRole, UserRole.reporter);
     expect(created.actorUid, isNull);
+  });
+
+  test('người báo nhắn khi chưa ai nhận việc: bảo vệ trực và quản trị đều nhận, bảo vệ nghỉ ca thì không', () async {
+    final (report, _) = await service.create(student, draft());
+    push.sent.clear();
+    await service.comment(student, report.id, 'Xe màu xanh');
+    expect(push.sent.single.$1.toSet(), {'tok-g1', 'tok-admin'});
+  });
+
+  test('ghi xung đột quá nhiều lần báo 409, không báo "không tìm thấy"', () async {
+    final svc = ReportService(
+      reports: _ConflictReports(),
+      users: users,
+      clock: clock.call,
+      notifications: NotificationService(push: push, users: users),
+    );
+    await expectLater(
+      svc.changeStatus(admin, 'r1', to: ReportStatus.received),
+      throwsA(isA<ApiException>().having((e) => e.statusCode, 'status', 409)),
+    );
   });
 
   test('xem chi tiết: người lạ bị chặn; bảo vệ không thấy người báo; quản trị và chính chủ thấy', () async {

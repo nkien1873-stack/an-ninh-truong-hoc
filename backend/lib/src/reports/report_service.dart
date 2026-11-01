@@ -260,8 +260,9 @@ class ReportService {
   ) async {
     try {
       return await _reports.mutate(id, apply);
-    } on StateError {
-      throw ApiException.notFound('Không tìm thấy báo cáo.');
+    } on StateError catch (e) {
+      if (e.message == 'report_not_found') throw ApiException.notFound('Không tìm thấy báo cáo.');
+      throw ApiException.conflict('Báo cáo đang được cập nhật. Hãy thử lại.', code: 'write_conflict');
     }
   }
 

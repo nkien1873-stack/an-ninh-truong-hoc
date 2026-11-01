@@ -299,15 +299,20 @@ class WalkService {
           continue;
         }
         final late = now.difference(walk.dueAt).inMinutes;
-        final done = await _raise(
-          user,
-          walk.id,
-          WalkStatus.overdue,
-          'Đi cùng tôi: quá giờ hẹn${late > 0 ? ' $late phút' : ''} mà chưa xác nhận đã tới ${walk.destination}.',
-          // Người dùng có thể vừa gia hạn ở máy khác: kiểm tra lại giờ hẹn trong transaction.
-          onlyIfDueBefore: now,
-        );
-        if (done != null) raised++;
+        // Một lượt lỗi không được chặn các lượt phía sau; lượt đó được thử lại ở lần quét sau.
+        try {
+          final done = await _raise(
+            user,
+            walk.id,
+            WalkStatus.overdue,
+            'Đi cùng tôi: quá giờ hẹn${late > 0 ? ' $late phút' : ''} mà chưa xác nhận đã tới ${walk.destination}.',
+            // Người dùng có thể vừa gia hạn ở máy khác: kiểm tra lại giờ hẹn khi ghi.
+            onlyIfDueBefore: now,
+          );
+          if (done != null) raised++;
+        } on Object catch (e) {
+          stderr.writeln('[walk] Không báo được lượt ${walk.id}: $e');
+        }
       }
       return raised;
     } on Object catch (e) {
@@ -323,7 +328,7 @@ class WalkService {
     _timer = Timer.periodic(every, (_) => unawaited(checkOverdue()));
   }
 
-  /// Giành lượt đi (đổi trạng thái trong transaction) rồi mới tạo báo cáo khẩn cấp, nên dù nhiều
+  /// Giành lượt đi (đổi trạng thái nguyên tử) rồi mới tạo báo cáo khẩn cấp, nên dù nhiều
   /// backend cùng quét thì chỉ một báo cáo được tạo. Trả về `null` nếu lượt đã được xử lý.
   Future<WalkRecord?> _raise(
     UserRecord user,
@@ -429,7 +434,7 @@ class WalkService {
   static String _clip(String s, int max) => s.length <= max ? s : s.substring(0, max);
 }
 
-/// Lượt chưa tới giờ hẹn (vừa được gia hạn): huỷ transaction, không báo quá giờ.
+/// Lượt chưa tới giờ hẹn (vừa được gia hạn): huỷ thao tác, không báo quá giờ.
 class _NotDue implements Exception {
   const _NotDue();
 }
