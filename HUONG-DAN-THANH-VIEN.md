@@ -11,7 +11,7 @@ Backend đã deploy trên Internet tại `https://an-ninh-truong-hoc-api.onrende
 
 ## 1. Cài app bằng APK
 
-1. Gửi file `sms-otp-main.apk` sang điện thoại (Zalo, Google Drive, cáp USB...). Cần Android 7.0 trở lên.
+1. Gửi file `CodeAndChill.apk` sang điện thoại (Zalo, Google Drive, cáp USB...). Cần Android 7.0 trở lên.
 2. Mở file trên điện thoại → nếu máy hỏi, cho phép **cài ứng dụng từ nguồn này** → **Cài đặt**.
    - Báo *"Ứng dụng chưa được cài đặt"* / *xung đột gói*: **gỡ app "An ninh trường học" cũ** rồi cài lại.
    - Google Play Protect cảnh báo ứng dụng lạ: chọn **Vẫn cài đặt** (bản demo không qua cửa hàng).

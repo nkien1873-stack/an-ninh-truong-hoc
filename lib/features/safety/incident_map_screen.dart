@@ -144,12 +144,12 @@ class _IncidentMapScreenState extends ConsumerState<IncidentMapScreen> {
                     interactionOptions: InteractionOptions(flags: InteractiveFlag.all & ~InteractiveFlag.rotate),
                   ),
                   children: [
-                    // tile.openstreetmap.org không kết nối được từ nhiều mạng ở Việt Nam, nền bản đồ sẽ xám.
+                    // tile.openstreetmap.org không kết nối được từ mạng đã thử; CARTO đòi API key.
                     TileLayer(
-                      urlTemplate: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-                      subdomains: const ['a', 'b', 'c', 'd'],
-                      retinaMode: RetinaMode.isHighDensity(context),
+                      urlTemplate:
+                          'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
                       userAgentPackageName: 'vn.edu.antoan.campus_safety',
+                      maxNativeZoom: 19,
                       maxZoom: 20,
                     ),
                     MarkerLayer(
@@ -179,8 +179,8 @@ class _IncidentMapScreenState extends ConsumerState<IncidentMapScreen> {
                           onTap: () => launchUrl(Uri.parse('https://openstreetmap.org/copyright')),
                         ),
                         TextSourceAttribution(
-                          'CARTO',
-                          onTap: () => launchUrl(Uri.parse('https://carto.com/attributions')),
+                          'Esri',
+                          onTap: () => launchUrl(Uri.parse('https://www.esri.com')),
                         ),
                       ],
                     ),
