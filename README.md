@@ -82,13 +82,7 @@ Thêm `%LOCALAPPDATA%\Pub\Cache\bin` vào PATH để gọi được `flutterfire
    ```
    Lệnh này ghi đè `lib/firebase_options.dart` (hiện là file tạm) và thêm `android/app/google-services.json`.
    Nếu chưa chạy, app mở màn "Chưa cấu hình Firebase" thay vì crash.
-7. Deploy Rules và index:
-   ```bash
-   cd firebase
-   firebase use --add            # chọn project vừa tạo
-   firebase deploy --only firestore:rules,firestore:indexes
-   ```
-8. **Service account cho backend**: Project settings → Service accounts → *Generate new private key*.
+7. **Service account cho backend**: Project settings → Service accounts → *Generate new private key*.
    Lưu file thành `backend/service-account.json` (đã nằm trong `.gitignore`).
 
 ## 4. Email OTP (Gmail, miễn phí)
