@@ -5,7 +5,7 @@ import 'package:campus_safety_backend/backend.dart';
 import 'package:dart_frog/dart_frog.dart';
 
 /// POST /images {data: `JPEG base64`} : tải ảnh sự cố lên (cần đăng nhập), trả `{path}` để gắn vào
-/// báo cáo. Ảnh lưu trong Firestore nên mọi backend đều đọc được.
+/// báo cáo. Ảnh lưu trong MongoDB.
 Future<Response> onRequest(RequestContext context) async {
   ensureMethod(context, {HttpMethod.post});
   return await requireAuth()(_upload)(context);

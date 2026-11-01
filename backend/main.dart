@@ -25,7 +25,7 @@ Future<void> init(InternetAddress ip, int port) async {
     exit(78); // EX_CONFIG
   }
 
-  final services = AppServices.production(config);
+  final services = await AppServices.production(config);
   AppServices.instance = services;
   services.walks.startOverdueTimer();
   _keepAwakeOnRender();

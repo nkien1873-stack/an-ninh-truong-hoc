@@ -108,6 +108,17 @@ class WalkRecord {
         'status': status.wire,
         'reportId': reportId,
       };
+
+  /// Đầy đủ thông tin cho chính chủ và bảo vệ, quản trị.
+  Map<String, Object?> toDetailJson() => {
+        ...toApiJson(),
+        'uid': uid,
+        'displayName': displayName,
+        'phone': phone,
+        'lastLatitude': lastLatitude,
+        'lastLongitude': lastLongitude,
+        'lastLocationAt': lastLocationAt?.toUtc().toIso8601String(),
+      };
 }
 
 abstract interface class WalkRepository {
@@ -123,11 +134,11 @@ abstract interface class WalkRepository {
   /// Ghi đè toàn bộ tài liệu (tạo lượt mới, gắn mã báo cáo vào lượt đã kết thúc).
   Future<void> save(WalkRecord walk);
 
-  /// Đọc và ghi nguyên tử (transaction) khi lượt **còn đang đi**. Trả về bản mới, hoặc `null` nếu
+  /// Đọc và ghi nguyên tử (khoá lạc quan) khi lượt **còn đang đi**. Trả về bản mới, hoặc `null` nếu
   /// lượt đã kết thúc (người dùng vừa bấm tới nơi, hoặc một backend khác vừa xử lý quá giờ).
   /// [update] có thể ném lỗi để huỷ thay đổi.
   ///
-  /// Nhiều backend cùng chạy (mỗi người một laptop, chung Firestore) nên mọi thay đổi trạng thái
+  /// Có thể có nhiều backend cùng chạy trên một CSDL nên mọi thay đổi trạng thái
   /// phải đi qua đây: chỉ một backend "giành" được lượt quá giờ và tạo báo cáo khẩn cấp.
   Future<WalkRecord?> updateIfActive(String id, WalkRecord Function(WalkRecord current) update);
 }
@@ -162,6 +173,10 @@ class WalkService {
   final DateTime Function() _clock;
   Timer? _timer;
   bool _checking = false;
+
+  Future<WalkRecord?> activeFor(String uid) => _walks.activeFor(uid);
+
+  Future<List<WalkRecord>> listActive() => _walks.listActive();
 
   Future<WalkRecord> start(
     UserRecord user, {

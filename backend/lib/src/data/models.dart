@@ -1,6 +1,6 @@
 import 'package:campus_core/campus_core.dart';
 
-/// Hồ sơ người dùng (`users/{uid}`).
+/// Hồ sơ người dùng (collection `users`).
 class UserRecord {
   const UserRecord({
     required this.uid,
@@ -90,8 +90,8 @@ class UserRecord {
       };
 }
 
-/// Báo cáo sự cố (`reports/{id}`). Với báo cáo ẩn danh, các trường người báo để trống;
-/// thông tin thật nằm ở `reports/{id}/private/reporter`.
+/// Báo cáo sự cố. Với báo cáo ẩn danh, các trường người báo để trống; thông tin thật nằm ở
+/// [ReporterPrivate].
 class ReportRecord {
   const ReportRecord({
     required this.id,
@@ -199,10 +199,34 @@ class ReportRecord {
         'emergency': emergency,
         'createdAt': createdAt.toUtc().toIso8601String(),
       };
+
+  /// Đầy đủ các trường để app hiển thị. Không chứa người báo thật của báo cáo ẩn danh.
+  Map<String, Object?> toDetailJson() => {
+        ...toApiJson(),
+        'description': description,
+        'occurredAt': occurredAt.toUtc().toIso8601String(),
+        'updatedAt': updatedAt.toUtc().toIso8601String(),
+        'anonymous': anonymous,
+        'locationText': locationText,
+        'building': building,
+        'floor': floor,
+        'room': room,
+        'latitude': latitude,
+        'longitude': longitude,
+        'accuracyMeters': accuracyMeters,
+        'reporterUid': anonymous ? null : reporterUid,
+        'reporterName': anonymous ? null : reporterName,
+        'reporterPhone': anonymous ? null : reporterPhone,
+        'reporterMemberType': anonymous ? null : reporterMemberType?.wire,
+        'imagePaths': imagePaths,
+        'assigneeUid': assigneeUid,
+        'assigneeName': assigneeName,
+        'lastNote': lastNote,
+        'closedAt': closedAt?.toUtc().toIso8601String(),
+      };
 }
 
-/// Thông tin thật của người báo (`reports/{id}/private/reporter`), chỉ quản trị và chính
-/// người báo đọc được.
+/// Thông tin thật của người báo, chỉ quản trị và chính người báo đọc được.
 class ReporterPrivate {
   const ReporterPrivate({required this.uid, required this.displayName, this.email, this.phone});
 
@@ -212,9 +236,11 @@ class ReporterPrivate {
 
   /// Số liên hệ của người báo, có thể trống.
   final VietnamPhone? phone;
+
+  Map<String, Object?> toApiJson() => {'uid': uid, 'phoneLocal': phone?.local, 'displayName': displayName};
 }
 
-/// Một dòng lịch sử (`reports/{id}/events/{eventId}`).
+/// Một dòng lịch sử của báo cáo.
 class ReportEvent {
   const ReportEvent({
     required this.type,
@@ -237,9 +263,20 @@ class ReportEvent {
   final ReportStatus? fromStatus;
   final ReportStatus? toStatus;
   final String? note;
+
+  Map<String, Object?> toApiJson() => {
+        'type': type.wire,
+        'createdAt': createdAt.toUtc().toIso8601String(),
+        'actorUid': actorUid,
+        'actorName': actorName,
+        'actorRole': actorRole.wire,
+        'fromStatus': fromStatus?.wire,
+        'toStatus': toStatus?.wire,
+        'note': note,
+      };
 }
 
-/// Cấu hình trường (`config/app`).
+/// Cấu hình trường (collection `config`, tài liệu `app`).
 class CampusConfig {
   const CampusConfig({
     required this.campusName,
@@ -261,7 +298,7 @@ class CampusConfig {
       };
 }
 
-/// Phiên OTP của một email (`otp_challenges/{khoá băm}`), client không truy cập được.
+/// Phiên OTP của một email (collection `otp_challenges`, khoá băm), API không trả về.
 class OtpChallenge {
   const OtpChallenge({
     this.codeHash,

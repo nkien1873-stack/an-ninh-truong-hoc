@@ -8,6 +8,7 @@ export 'src/auth/account_service.dart';
 export 'src/auth/password_hasher.dart';
 export 'src/config/app_config.dart';
 export 'src/data/models.dart';
+export 'src/data/mongo_store.dart';
 export 'src/data/repositories.dart';
 export 'src/http/api_exception.dart';
 export 'src/http/middleware.dart';

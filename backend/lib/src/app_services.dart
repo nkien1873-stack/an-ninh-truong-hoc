@@ -2,16 +2,16 @@ import 'dart:io';
 
 import 'package:dart_firebase_admin/auth.dart' as fb_auth;
 import 'package:dart_firebase_admin/dart_firebase_admin.dart';
-import 'package:dart_firebase_admin/firestore.dart';
 import 'package:dart_firebase_admin/messaging.dart' as fb_messaging;
 
 import 'auth/firebase_auth_service.dart';
 import 'auth/otp_mailer.dart';
 import 'auth/account_service.dart';
 import 'config/app_config.dart';
-import 'data/firestore_repositories.dart';
-import 'data/firestore_safety_repositories.dart';
 import 'data/models.dart';
+import 'data/mongo_repositories.dart';
+import 'data/mongo_safety_repositories.dart';
+import 'data/mongo_store.dart';
 import 'data/repositories.dart';
 import 'notifications/notification_service.dart';
 import 'notifications/push_service.dart';
@@ -64,7 +64,7 @@ class AppServices {
 
   static set instance(AppServices value) => _instance = value;
 
-  /// Cấu hình trường hiện tại (Firestore `config/app`), rơi về giá trị trong .env và
+  /// Cấu hình trường hiện tại (MongoDB), rơi về giá trị trong .env và
   /// `config/campus.json` nếu chưa có.
   Future<CampusConfig> currentCampusConfig() async {
     final stored = await campusConfig.read();
@@ -76,8 +76,8 @@ class AppServices {
     );
   }
 
-  /// Kết nối Firebase Admin và máy chủ mail theo [config].
-  factory AppServices.production(AppConfig config) {
+  /// Kết nối MongoDB (CSDL chính), Firebase Admin (đăng nhập, thông báo đẩy) và mail theo [config].
+  static Future<AppServices> production(AppConfig config) async {
     final credentialPath = config.serviceAccountPath;
     final Credential credential;
     if (credentialPath != null) {
@@ -92,10 +92,10 @@ class AppServices {
       credential = Credential.fromApplicationDefaultCredentials();
     }
     final app = FirebaseAdminApp.initializeApp(config.firebaseProjectId, credential);
-    final firestore = Firestore(app);
+    final store = await MongoStore.connect(config.mongoUri);
 
-    final users = FirestoreUserRepository(firestore);
-    final reports = FirestoreReportRepository(firestore);
+    final users = MongoUserRepository(store);
+    final reports = MongoReportRepository(store);
     final authTokens = FirebaseAuthTokenService(fb_auth.Auth(app));
 
     final notifications = NotificationService(
@@ -108,13 +108,13 @@ class AppServices {
       config: config,
       users: users,
       reports: reports,
-      campusConfig: FirestoreConfigRepository(firestore),
+      campusConfig: MongoConfigRepository(store),
       authTokens: authTokens,
       notifications: notifications,
       accounts: AccountService(
-        store: FirestoreOtpStore(firestore),
+        store: MongoOtpStore(store),
         users: users,
-        credentials: FirestoreCredentialRepository(firestore),
+        credentials: MongoCredentialRepository(store),
         mailer: config.mailScriptUrl != null
             ? AppsScriptOtpMailer(
                 url: config.mailScriptUrl!,
@@ -136,10 +136,10 @@ class AppServices {
         bootstrapAdmins: config.bootstrapAdminEmails,
       ),
       reportService: reportService,
-      images: ImageService(FirestoreImageRepository(firestore)),
-      broadcasts: BroadcastService(broadcasts: FirestoreBroadcastRepository(firestore), notifications: notifications),
+      images: ImageService(MongoImageRepository(store)),
+      broadcasts: BroadcastService(broadcasts: MongoBroadcastRepository(store), notifications: notifications),
       walks: WalkService(
-        walks: FirestoreWalkRepository(firestore),
+        walks: MongoWalkRepository(store),
         users: users,
         reports: reportService,
         notifications: notifications,

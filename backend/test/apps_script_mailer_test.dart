@@ -62,7 +62,7 @@ void main() {
   });
 
   group('cấu hình', () {
-    final base = {'FIREBASE_PROJECT_ID': 'p', 'OTP_PEPPER': 'x' * 32};
+    final base = {'MONGODB_URI': 'mongodb://localhost/x', 'FIREBASE_PROJECT_ID': 'p', 'OTP_PEPPER': 'x' * 32};
 
     test('có MAIL_SCRIPT_URL thì không cần SMTP', () {
       final config = AppConfig.fromEnvironment({...base, 'MAIL_SCRIPT_URL': url, 'MAIL_SCRIPT_SECRET': 'y' * 32});

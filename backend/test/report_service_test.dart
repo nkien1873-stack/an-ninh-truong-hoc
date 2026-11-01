@@ -6,7 +6,7 @@ import 'support/fakes.dart';
 
 class _FlakyUsers extends MemoryUserRepository {
   @override
-  Future<List<UserRecord>> listStaff() => throw StateError('Firestore unavailable');
+  Future<List<UserRecord>> listStaff() => throw StateError('CSDL không truy cập được');
 }
 
 void main() {
@@ -207,6 +207,37 @@ void main() {
     final created = reports.events[report.id]!.single;
     expect(created.actorRole, UserRole.reporter);
     expect(created.actorUid, isNull);
+  });
+
+  test('xem chi tiết: người lạ bị chặn; bảo vệ không thấy người báo; quản trị và chính chủ thấy', () async {
+    final (report, _) = await service.create(student, draft(anonymous: true));
+    final stranger = users.seed(phone: '0966000222', name: 'Người lạ');
+
+    await expectLater(
+      service.detail(stranger, report.id),
+      throwsA(isA<ApiException>().having((e) => e.statusCode, 'status', 403)),
+    );
+    final forGuard = (await service.detail(guardOnDuty, report.id)).toApiJson();
+    expect(forGuard['reporter'], isNull);
+    expect((forGuard['report']! as Map)['reporterUid'], isNull);
+    expect((await service.detail(admin, report.id)).reporter?.uid, student.uid);
+    final own = (await service.detail(student, report.id)).toApiJson();
+    expect((own['reporter']! as Map)['uid'], student.uid);
+    expect(own['events'], hasLength(1));
+  });
+
+  test('danh sách: người báo chỉ xem báo cáo của mình, kể cả ẩn danh', () async {
+    final (mine, _) = await service.create(student, draft(anonymous: true));
+    await service.create(guardOff, draft());
+    expect((await service.list(student, scope: 'mine')).map((r) => r.id), [mine.id]);
+    for (final scope in ['open', 'assigned', 'since']) {
+      await expectLater(
+        () => service.list(student, scope: scope, from: clock.now),
+        throwsA(isA<ApiException>().having((e) => e.statusCode, 'status', 403)),
+      );
+    }
+    expect(await service.list(admin, scope: 'open'), hasLength(2));
+    await expectLater(() => service.list(admin, scope: 'la'), throwsA(isA<ApiException>()));
   });
 
   test('đổi trạng thái không kèm ghi chú thì xoá ghi chú cũ', () async {

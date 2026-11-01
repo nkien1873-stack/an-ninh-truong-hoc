@@ -16,6 +16,7 @@ class ConfigException implements Exception {
 /// Toàn bộ cấu hình đọc từ `.env` / biến môi trường.
 class AppConfig {
   AppConfig({
+    required this.mongoUri,
     required this.firebaseProjectId,
     required this.serviceAccountPath,
     required this.otpPepper,
@@ -34,6 +35,8 @@ class AppConfig {
     required this.trustProxy,
   });
 
+  /// Chuỗi kết nối MongoDB (CSDL chính). Có chứa mật khẩu, không ghi ra log.
+  final String mongoUri;
   final String firebaseProjectId;
   final String? serviceAccountPath;
   final String otpPepper;
@@ -58,6 +61,7 @@ class AppConfig {
 
   /// Mọi biến cấu hình backend đọc (xem `.env.example`).
   static final List<String> knownKeys = [
+    'MONGODB_URI',
     'FIREBASE_PROJECT_ID',
     'GOOGLE_APPLICATION_CREDENTIALS',
     'OTP_PEPPER',
@@ -117,6 +121,11 @@ class AppConfig {
       return result;
     }
 
+    final mongoUri = requireKey('MONGODB_URI', 'Chuỗi kết nối MongoDB, ví dụ mongodb+srv://user:matkhau@cum.mongodb.net/an_ninh.');
+    if (mongoUri.isNotEmpty && !mongoUri.startsWith('mongodb')) {
+      problems.add('MONGODB_URI phải bắt đầu bằng mongodb:// hoặc mongodb+srv://.');
+    }
+
     final projectId = requireKey('FIREBASE_PROJECT_ID', 'Project ID của Firebase.');
 
     final pepper = requireKey('OTP_PEPPER', 'Chuỗi bí mật >= 32 ký tự để băm OTP.');
@@ -154,6 +163,7 @@ class AppConfig {
     }
 
     final config = AppConfig(
+      mongoUri: mongoUri,
       firebaseProjectId: projectId,
       serviceAccountPath: read('GOOGLE_APPLICATION_CREDENTIALS'),
       otpPepper: pepper,

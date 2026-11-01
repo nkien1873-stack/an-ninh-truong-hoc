@@ -1,5 +1,5 @@
 // Bản cài đặt trong bộ nhớ CHỈ dùng cho unit test, để chạy nhanh mà không cần Firebase.
-// Mã chạy thật luôn dùng Firestore và SMTP thật (xem lib/src/app_services.dart).
+// Mã chạy thật luôn dùng MongoDB và gửi mail thật (xem lib/src/app_services.dart).
 import 'package:campus_core/campus_core.dart';
 import 'package:campus_safety_backend/backend.dart';
 import 'package:campus_safety_backend/src/notifications/push_service.dart';
@@ -123,6 +123,10 @@ class MemoryUserRepository implements UserRepository {
   @override
   Future<List<UserRecord>> listStaff() async =>
       byUid.values.where((u) => u.role.isStaff && u.active).toList();
+
+  @override
+  Future<List<UserRecord>> listByRoles(Set<UserRole> roles) async =>
+      byUid.values.where((u) => roles.contains(u.role)).toList();
 }
 
 class MemoryCredentialRepository implements CredentialRepository {
@@ -213,6 +217,27 @@ class MemoryReportRepository implements ReportRepository {
 
   @override
   Future<void> addEvent(String reportId, ReportEvent event) async => events[reportId]!.add(event);
+
+  @override
+  Future<List<ReportEvent>> eventsOf(String id) async => events[id] ?? const [];
+
+  List<ReportRecord> _newest(bool Function(ReportRecord) test, int limit) =>
+      (reports.values.where(test).toList()..sort((a, b) => b.createdAt.compareTo(a.createdAt))).take(limit).toList();
+
+  @override
+  Future<List<ReportRecord>> listOpen({required int limit}) async => _newest((r) => !r.status.isClosed, limit);
+
+  @override
+  Future<List<ReportRecord>> listSince(DateTime from, {required int limit}) async =>
+      _newest((r) => !r.createdAt.isBefore(from), limit);
+
+  @override
+  Future<List<ReportRecord>> listAssignedTo(String uid, {required int limit}) async =>
+      _newest((r) => r.assigneeUid == uid, limit);
+
+  @override
+  Future<List<ReportRecord>> listByReporter(String uid, {required int limit}) async =>
+      _newest((r) => privates[r.id]?.uid == uid, limit);
 }
 
 /// Ghi lại email OTP cần gửi; [failWith] khác null thì giả lập gửi thất bại.

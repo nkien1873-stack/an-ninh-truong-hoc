@@ -18,6 +18,9 @@ class _MemoryBroadcasts implements BroadcastRepository {
   Future<BroadcastRecord?> byId(String id) async => items[id];
 
   @override
+  Future<List<BroadcastRecord>> recent({required int limit}) async => items.values.take(limit).toList();
+
+  @override
   Future<void> end(String id, DateTime at) async {
     final b = items[id]!;
     items[id] = BroadcastRecord(
@@ -207,7 +210,7 @@ void main() {
       await expectLater(service.cancel(student, walk.id), throwsA(apiError('walk_ended')));
     });
 
-    group('nhiều backend dùng chung Firestore', () {
+    group('nhiều backend dùng chung CSDL', () {
       // Mỗi laptop chạy một backend riêng nhưng cùng database: dùng chung kho lượt đi và báo cáo.
       WalkService backend() => WalkService(
             walks: store,
