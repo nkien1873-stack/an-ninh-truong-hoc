@@ -26,7 +26,11 @@ Future<void> init(InternetAddress ip, int port) async {
   final services = AppServices.production(config);
   AppServices.instance = services;
   services.walks.startOverdueTimer();
-  stdout.writeln('[campus_safety] OTP gửi qua email ${config.smtpUsername} (${config.smtpHost}:${config.smtpPort}).');
+  stdout.writeln(
+    config.mailScriptUrl != null
+        ? '[campus_safety] OTP gửi qua Google Apps Script.'
+        : '[campus_safety] OTP gửi qua email ${config.smtpUsername} (${config.smtpHost}:${config.smtpPort}).',
+  );
 }
 
 Future<HttpServer> run(Handler handler, InternetAddress ip, int port) {

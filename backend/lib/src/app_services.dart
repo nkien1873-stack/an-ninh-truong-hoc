@@ -115,15 +115,21 @@ class AppServices {
         store: FirestoreOtpStore(firestore),
         users: users,
         credentials: FirestoreCredentialRepository(firestore),
-        mailer: SmtpOtpMailer(
-          host: config.smtpHost,
-          port: config.smtpPort,
-          username: config.smtpUsername,
-          password: config.smtpPassword,
-          fromAddress: config.mailFromAddress,
-          fromName: config.mailFromName,
-          appName: config.mailFromName,
-        ),
+        mailer: config.mailScriptUrl != null
+            ? AppsScriptOtpMailer(
+                url: config.mailScriptUrl!,
+                secret: config.mailScriptSecret!,
+                fromName: config.mailFromName,
+                appName: config.mailFromName,
+              )
+            : SmtpOtpMailer(
+                host: config.smtpHost,
+                port: config.smtpPort,
+                username: config.smtpUsername,
+                password: config.smtpPassword,
+                fromName: config.mailFromName,
+                appName: config.mailFromName,
+              ),
         auth: authTokens,
         pepper: config.otpPepper,
         allowSelfRegistration: config.allowSelfRegistration,

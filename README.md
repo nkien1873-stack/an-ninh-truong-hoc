@@ -201,7 +201,7 @@ cd backend && dart analyze && dart test
 | Bộ test | Nội dung | Số test |
 |---|---|---|
 | `packages/campus_core/test` | chuẩn hoá SĐT và email, quy tắc tên đăng nhập/mật khẩu, email không chứa "/", phân quyền, máy trạng thái, validate báo cáo | 70 |
-| `backend/test` | đăng ký email + OTP (chỉ tạo tài khoản khi đúng mã, trùng tên, nhận tài khoản tạo trước), đăng nhập mật khẩu (khoá sau 5 lần sai, không lộ tài khoản), quên và đổi mật khẩu, xoá tài khoản, PBKDF2 theo vector RFC, nghiệp vụ báo cáo, thông báo đẩy theo trạng thái trực, cảnh báo toàn trường, "Đi cùng tôi" (quá giờ, gia hạn, khẩn cấp, nhiều backend quét cùng lúc), kho ảnh, giới hạn tần suất | 63 |
+| `backend/test` | đăng ký email + OTP (chỉ tạo tài khoản khi đúng mã, trùng tên, nhận tài khoản tạo trước), đăng nhập mật khẩu (khoá sau 5 lần sai, không lộ tài khoản), quên và đổi mật khẩu, xoá tài khoản, PBKDF2 theo vector RFC, nghiệp vụ báo cáo, thông báo đẩy theo trạng thái trực, cảnh báo toàn trường, "Đi cùng tôi" (quá giờ, gia hạn, khẩn cấp, nhiều backend quét cùng lúc), kho ảnh, giới hạn tần suất | 69 |
 | `test/` | điều hướng theo vai trò, lọc/thống kê, API client, **widget test màn gửi báo cáo**, sheet khẩn cấp (chờ GPS), lịch sử ẩn danh, dữ liệu cảnh báo toàn trường và "Đi cùng tôi", **widget test đăng nhập/đăng ký/OTP** | 46 |
 
 Test không gọi Firebase/máy chủ mail thật (dùng giả lập và kho dữ liệu trong bộ nhớ chỉ có trong `test/`).

@@ -13,6 +13,7 @@ dependencies:
   dart_firebase_admin: ^0.4.1
   dart_frog: ^1.2.6
   dotenv: ^4.2.0
+  http: ^1.6.0
   mailer: ^7.2.0
 
 dev_dependencies:

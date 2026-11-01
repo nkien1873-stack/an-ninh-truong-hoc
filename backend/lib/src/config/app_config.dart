@@ -23,7 +23,8 @@ class AppConfig {
     required this.smtpPort,
     required this.smtpUsername,
     required this.smtpPassword,
-    required this.mailFromAddress,
+    required this.mailScriptUrl,
+    required this.mailScriptSecret,
     required this.mailFromName,
     required this.allowSelfRegistration,
     required this.bootstrapAdminEmails,
@@ -42,8 +43,10 @@ class AppConfig {
   final int smtpPort;
   final String smtpUsername;
   final String smtpPassword;
-  /// Địa chỉ người gửi; bỏ trống thì dùng SMTP_USERNAME (như Gmail). Brevo có tên đăng nhập SMTP riêng.
-  final String? mailFromAddress;
+
+  /// Web app Google Apps Script gửi mail qua HTTPS. Có giá trị thì dùng thay SMTP.
+  final String? mailScriptUrl;
+  final String? mailScriptSecret;
   final String mailFromName;
   final bool allowSelfRegistration;
   final Set<EmailAddress> bootstrapAdminEmails;
@@ -62,7 +65,8 @@ class AppConfig {
     'SMTP_PORT',
     'SMTP_USERNAME',
     'SMTP_PASSWORD',
-    'MAIL_FROM_ADDRESS',
+    'MAIL_SCRIPT_URL',
+    'MAIL_SCRIPT_SECRET',
     'MAIL_FROM_NAME',
     'ALLOW_SELF_REGISTRATION',
     'BOOTSTRAP_ADMIN_EMAILS',
@@ -120,19 +124,28 @@ class AppConfig {
       problems.add('OTP_PEPPER phải dài ít nhất 32 ký tự.');
     }
 
-    final smtpUser = requireKey('SMTP_USERNAME', 'Địa chỉ Gmail dùng để gửi mã OTP.');
+    final mailScriptUrl = read('MAIL_SCRIPT_URL');
+    final mailScriptSecret = read('MAIL_SCRIPT_SECRET');
+    final useScript = mailScriptUrl != null;
+    if (useScript) {
+      if (!mailScriptUrl.startsWith('https://')) problems.add('MAIL_SCRIPT_URL phải bắt đầu bằng https://.');
+      if ((mailScriptSecret?.length ?? 0) < 32) problems.add('MAIL_SCRIPT_SECRET phải dài ít nhất 32 ký tự.');
+    }
+    String requireSmtp(String key, String hint) => useScript ? (read(key) ?? '') : requireKey(key, hint);
+
+    final smtpUser = requireSmtp('SMTP_USERNAME', 'Địa chỉ Gmail dùng để gửi mã OTP (hoặc đặt MAIL_SCRIPT_URL).');
     if (smtpUser.isNotEmpty && EmailAddress.tryParse(smtpUser) == null) {
       problems.add('SMTP_USERNAME phải là địa chỉ email (đang là "$smtpUser").');
     }
     // Mật khẩu ứng dụng Gmail hiển thị dạng "abcd efgh ijkl mnop": bỏ khoảng trắng.
-    final smtpPassword = requireKey(
+    final smtpPassword = requireSmtp(
       'SMTP_PASSWORD',
       'Mật khẩu ứng dụng của Gmail (myaccount.google.com/apppasswords), không phải mật khẩu đăng nhập.',
     ).replaceAll(' ', '');
     final portRaw = read('SMTP_PORT');
     final smtpPort = portRaw == null ? 587 : int.tryParse(portRaw);
     if (smtpPort == null || smtpPort <= 0 || smtpPort > 65535) {
-      problems.add('SMTP_PORT phải là số cổng hợp lệ, thường là 587, 465 hoặc 2525 (đang là "$portRaw").');
+      problems.add('SMTP_PORT phải là số cổng hợp lệ, thường là 587 hoặc 465 (đang là "$portRaw").');
     }
 
     final hotlineRaw = read('DUTY_HOTLINE');
@@ -148,7 +161,8 @@ class AppConfig {
       smtpPort: smtpPort ?? 587,
       smtpUsername: smtpUser,
       smtpPassword: smtpPassword,
-      mailFromAddress: read('MAIL_FROM_ADDRESS'),
+      mailScriptUrl: mailScriptUrl,
+      mailScriptSecret: mailScriptSecret,
       mailFromName: read('MAIL_FROM_NAME') ?? 'An ninh trường học',
       allowSelfRegistration: readBool('ALLOW_SELF_REGISTRATION', fallback: true),
       bootstrapAdminEmails: readEmails('BOOTSTRAP_ADMIN_EMAILS').toSet(),
