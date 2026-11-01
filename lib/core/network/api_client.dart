@@ -28,6 +28,13 @@ class ApiClient {
   final http.Client _client;
   final Duration timeout;
 
+  final _changes = StreamController<void>.broadcast();
+
+  /// Phát khi dữ liệu có thể đã đổi, để các màn hình đang mở tải lại ngay (xem `pollApi`).
+  Stream<void> get changes => _changes.stream;
+
+  void notifyChanged() => _changes.add(null);
+
   Future<Map<String, Object?>> get(String path, {bool auth = true}) =>
       _send('GET', path, auth: auth);
 
@@ -90,6 +97,7 @@ class ApiClient {
     }
     if (response.statusCode == 401 && auth) unawaited(onSessionExpired?.call());
     if (response.statusCode >= 400) throw ApiError.fromBody(response.statusCode, decoded);
+    if (method != 'GET' && auth) notifyChanged();
     if (decoded is Map<String, Object?>) return decoded;
     throw ApiError.unexpected(response.statusCode);
   }

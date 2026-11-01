@@ -1,19 +1,9 @@
 import 'package:campus_core/campus_core.dart';
 
-/// Đọc thời gian từ Firestore mà không phụ thuộc package Firebase ở tầng domain:
-/// `Timestamp` có phương thức `toDate()`.
+/// Backend trả thời gian dạng ISO 8601 UTC; app hiển thị theo giờ máy.
 DateTime _date(Object? v, [DateTime? fallback]) {
-  final zero = fallback ?? DateTime.fromMillisecondsSinceEpoch(0);
-  if (v == null) return zero;
-  if (v is DateTime) return v;
-  if (v is String) return DateTime.tryParse(v) ?? zero;
-  try {
-    final converted = (v as dynamic).toDate();
-    if (converted is DateTime) return converted;
-  } on NoSuchMethodError {
-    // Không phải Timestamp.
-  }
-  return zero;
+  final parsed = v is String ? DateTime.tryParse(v)?.toLocal() : null;
+  return parsed ?? fallback ?? DateTime.fromMillisecondsSinceEpoch(0);
 }
 
 DateTime? _dateOrNull(Object? v) => v == null ? null : _date(v);
@@ -22,7 +12,7 @@ String? _str(Object? v) => v is String && v.isNotEmpty ? v : null;
 
 double? _num(Object? v) => v is num ? v.toDouble() : null;
 
-/// Báo cáo sự cố (`reports/{id}`), dạng bảo vệ/quản trị/người báo đọc từ Firestore.
+/// Báo cáo sự cố, dạng backend trả về cho bảo vệ, quản trị và người báo.
 class Report {
   const Report({
     required this.id,
@@ -53,6 +43,8 @@ class Report {
     this.lastNote,
     this.closedAt,
   });
+
+  factory Report.fromJson(Map<String, dynamic> j) => Report.fromMap(j['id'] as String, j);
 
   factory Report.fromMap(String id, Map<String, dynamic> d) => Report(
         id: id,
@@ -119,7 +111,7 @@ class Report {
   Duration? get timeToClose => closedAt?.difference(createdAt);
 }
 
-/// Mục trong "Báo cáo của tôi" (`users/{uid}/reports/{id}`).
+/// Mục trong "Báo cáo của tôi".
 class ReportSummary {
   const ReportSummary({
     required this.id,
@@ -172,7 +164,7 @@ class ReportSummary {
   final DateTime updatedAt;
 }
 
-/// Một dòng lịch sử xử lý / trao đổi (`reports/{id}/events/{eventId}`).
+/// Một dòng lịch sử xử lý / trao đổi.
 class ReportEventItem {
   const ReportEventItem({
     required this.id,
@@ -222,6 +214,24 @@ class ReporterContact {
   final String uid;
   final String phone;
   final String displayName;
+}
+
+/// Chi tiết một báo cáo: nội dung, lịch sử, và người báo nếu người xem được phép biết.
+class ReportDetail {
+  const ReportDetail({required this.report, this.events = const [], this.contact});
+
+  factory ReportDetail.fromJson(Map<String, Object?> j) => ReportDetail(
+        report: Report.fromJson((j['report']! as Map).cast<String, dynamic>()),
+        events: [
+          for (final e in ((j['events'] as List?) ?? const []).whereType<Map>())
+            ReportEventItem.fromMap('${e['id']}', e.cast<String, dynamic>()),
+        ],
+        contact: j['reporter'] is Map ? ReporterContact.fromMap((j['reporter']! as Map).cast<String, dynamic>()) : null,
+      );
+
+  final Report report;
+  final List<ReportEventItem> events;
+  final ReporterContact? contact;
 }
 
 /// Kết quả gửi báo cáo.

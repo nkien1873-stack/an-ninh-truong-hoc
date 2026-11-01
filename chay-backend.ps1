@@ -1,4 +1,4 @@
-﻿# Chạy backend trên laptop này. Dữ liệu dùng chung với các laptop khác qua Firestore (cloud).
+﻿# Chạy backend trên laptop này để thử khi sửa code. Dữ liệu nằm trên MongoDB Atlas.
 # Cách dùng: chuột phải file này > "Run with PowerShell", hoặc trong PowerShell:
 #   powershell -ExecutionPolicy Bypass -File .\chay-backend.ps1
 # Giữ cửa sổ này mở trong suốt buổi báo cáo; đóng cửa sổ là tắt backend.

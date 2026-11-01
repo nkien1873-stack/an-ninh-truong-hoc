@@ -26,8 +26,8 @@ D:\sms-otp-main
 │  ├─ core/                 theme, router theo vai trò, API client, push FCM, vị trí, ảnh, widget dùng chung
 │  └─ features/             auth · reports · staff · admin · settings · campus (mỗi feature: domain / data / presentation)
 ├─ packages/campus_core/    Logic Dart dùng chung app + backend: chuẩn hoá SĐT, vai trò, máy trạng thái, phân quyền, validate
-├─ backend/                 dart_frog: tài khoản, OTP qua email, custom token Firebase, FCM
-├─ firebase/                firestore.rules, storage.rules, firestore.indexes.json, firebase.json
+├─ backend/                 dart_frog: web API, MongoDB, tài khoản, OTP qua email, custom token Firebase, FCM
+├─ firebase/                cấu hình Firebase cũ, không còn dùng cho dữ liệu
 ├─ test/                    Unit test + widget test của app
 └─ tool/screenshots/        Chụp ảnh các màn để rà soát giao diện
 ```
@@ -36,12 +36,12 @@ Luồng dữ liệu:
 
 ```
 App ──(Firebase ID token)──► backend dart_frog ──► SMTP (Gmail): email chứa mã OTP
- │                               ├──► Firestore (Admin SDK): ghi báo cáo, sự kiện, tài khoản, ảnh
+ │                               ├──► MongoDB Atlas: CSDL chính (tài khoản, báo cáo, lượt đi, cảnh báo, ảnh)
  │                               └──► FCM HTTP v1: push cho bảo vệ / người báo
- └──(chỉ ĐỌC, theo Firestore Rules)──► Firestore realtime (ảnh xem qua backend GET /images/{id})
+ └──(mọi thao tác đọc và ghi đều qua web API; app tự tải lại định kỳ và ngay khi có thông báo đẩy)
 ```
 
-- App **không chứa secret**. Mọi thao tác ghi đi qua backend; Firestore Rules chặn ghi từ client.
+- App **không chứa secret** và không truy cập CSDL trực tiếp. **Firebase chỉ là phần hỗ trợ**: đăng nhập (Auth) và thông báo đẩy (FCM).
 - `AccountService` (`backend/lib/src/auth/account_service.dart`): đăng ký (màn đăng ký không có ô chọn đối tượng:
   tài khoản mới mặc định là Sinh viên, chỉ quản trị đổi sang Giảng viên (màn Tài khoản), người dùng không tự đổi; vai trò luôn là Người báo; gửi OTP, chỉ tạo tài khoản khi nhập đúng mã), quên mật khẩu (OTP gửi tới email
   của tài khoản, đúng mã mới đổi được), quản trị xoá tài khoản, đăng nhập (mật khẩu băm PBKDF2-HMAC-SHA256, sai 5 lần khoá 15 phút). Mật khẩu đã băm nằm ở `credentials/{uid}`,
@@ -72,9 +72,7 @@ Thêm `%LOCALAPPDATA%\Pub\Cache\bin` vào PATH để gọi được `flutterfire
 ## 3. Cấu hình Firebase
 
 1. Vào <https://console.firebase.google.com>, tạo project.
-2. **Firestore Database**: tạo database (Native mode), vùng `asia-southeast1` (Singapore) cho gần Việt Nam.
-3. **Ảnh sự cố**: **không cần** Cloud Storage (gói Blaze). App nén ảnh (JPEG, tối đa 700 KB), gửi qua backend
-   `POST /images`, backend lưu vào Firestore `report_images/{id}`; mọi backend dùng chung nên máy nào cũng xem được.
+2. Bật **Authentication** và **Cloud Messaging**. Dữ liệu không nằm trên Firebase mà ở MongoDB Atlas (biến `MONGODB_URI`).
 4. **Authentication**: bấm "Get started". Không cần bật provider nào: app đăng nhập bằng *custom token* do backend cấp sau khi xác thực OTP.
 5. Thêm app Android với **Application ID `vn.edu.antoan.campus_safety`**.
 6. Ở thư mục dự án:
@@ -125,7 +123,7 @@ dart_frog dev
 ```
 
 Backend chạy ở `http://localhost:8080`. Thiếu cấu hình thì backend in rõ biến nào thiếu (tiếng Việt) và dừng.
-Bắt buộc: `FIREBASE_PROJECT_ID`, `GOOGLE_APPLICATION_CREDENTIALS` (file service account), `OTP_PEPPER`,
+Bắt buộc: `MONGODB_URI`, `FIREBASE_PROJECT_ID`, `GOOGLE_APPLICATION_CREDENTIALS` (file service account), `OTP_PEPPER`,
 `SMTP_USERNAME`, `SMTP_PASSWORD`.
 
 Biến quan trọng khác trong `.env`:
@@ -142,7 +140,7 @@ Các API: `GET /config`, `POST /auth/register/request`, `POST /auth/register/ver
 `POST /walks/{id}/location|arrive|cancel|extend|sos`.
 
 Backend quét các lượt "Đi cùng tôi" quá giờ mỗi 30 giây (`WalkService.startOverdueTimer`).
-Chạy nhiều backend cùng lúc trên một Firestore (mỗi người một laptop) vẫn an toàn: mọi thay đổi trạng thái lượt đi
+Chạy nhiều backend cùng lúc trên một CSDL vẫn an toàn: mọi thay đổi trạng thái lượt đi
 đi qua transaction (`WalkRepository.updateIfActive`), nên mỗi lượt quá giờ chỉ tạo đúng một báo cáo khẩn cấp.
 
 ## 6. Chạy app
@@ -202,10 +200,10 @@ cd backend && dart analyze && dart test
 | Bộ test | Nội dung | Số test |
 |---|---|---|
 | `packages/campus_core/test` | chuẩn hoá SĐT và email, quy tắc tên đăng nhập/mật khẩu, email không chứa "/", phân quyền, máy trạng thái, validate báo cáo | 70 |
-| `backend/test` | đăng ký email + OTP (chỉ tạo tài khoản khi đúng mã, trùng tên, nhận tài khoản tạo trước), đăng nhập mật khẩu (khoá sau 5 lần sai, không lộ tài khoản), quên và đổi mật khẩu, xoá tài khoản, PBKDF2 theo vector RFC, nghiệp vụ báo cáo, thông báo đẩy theo trạng thái trực, cảnh báo toàn trường, "Đi cùng tôi" (quá giờ, gia hạn, khẩn cấp, nhiều backend quét cùng lúc), kho ảnh, giới hạn tần suất | 71 |
-| `test/` | điều hướng theo vai trò, lọc/thống kê, API client, **widget test màn gửi báo cáo**, sheet khẩn cấp (chờ GPS), lịch sử ẩn danh, dữ liệu cảnh báo toàn trường và "Đi cùng tôi", **widget test đăng nhập/đăng ký/OTP** | 46 |
+| `backend/test` | đăng ký email + OTP (chỉ tạo tài khoản khi đúng mã, trùng tên, nhận tài khoản tạo trước), đăng nhập mật khẩu (khoá sau 5 lần sai, không lộ tài khoản), quên và đổi mật khẩu, xoá tài khoản, PBKDF2 theo vector RFC, nghiệp vụ báo cáo, thông báo đẩy theo trạng thái trực, cảnh báo toàn trường, "Đi cùng tôi" (quá giờ, gia hạn, khẩn cấp, nhiều backend quét cùng lúc), kho ảnh, giới hạn tần suất | 73 |
+| `test/` | điều hướng theo vai trò, lọc/thống kê, API client, **widget test màn gửi báo cáo**, sheet khẩn cấp (chờ GPS), lịch sử ẩn danh, dữ liệu cảnh báo toàn trường và "Đi cùng tôi", **widget test đăng nhập/đăng ký/OTP** | 50 |
 
-Test không gọi Firebase/máy chủ mail thật (dùng giả lập và kho dữ liệu trong bộ nhớ chỉ có trong `test/`).
+Test không gọi MongoDB/Firebase/máy chủ mail thật (dùng giả lập và kho dữ liệu trong bộ nhớ chỉ có trong `test/`).
 Mã chạy thật luôn gửi email/tin thật.
 
 Chụp ảnh các màn (sáng/tối, chữ 200%) để rà soát giao diện:
@@ -227,7 +225,7 @@ flutter test tool/screenshots/capture_test.dart --update-goldens
   (bản release chặn HTTP).
 - Mật khẩu: tối thiểu 8 ký tự có chữ và số, băm PBKDF2-HMAC-SHA256 (80.000 vòng, muối ngẫu nhiên). Đăng nhập sai báo
   chung "Tên đăng nhập hoặc mật khẩu không đúng" (không lộ tài khoản có tồn tại), sai 5 lần khoá 15 phút.
-- Firestore Rules theo vai trò; client chỉ đọc. Ảnh: chỉ JPEG tối đa 700 KB, lưu ở `report_images` (client không đọc
+- Phân quyền theo vai trò nằm ở backend; client chỉ gọi API. Ảnh: chỉ JPEG tối đa 700 KB, lưu ở `report_images` (client không đọc
   trực tiếp); link xem ảnh dùng ID ngẫu nhiên 32 ký tự, chỉ ai thấy báo cáo mới biết link.
 - Ảnh được nén (cạnh dài 1600px, JPEG) và **xoá EXIF** (không lộ GPS trong ảnh) trước khi tải lên.
 - Validate dữ liệu ở cả app và backend bằng cùng một package (`campus_core`).

@@ -30,7 +30,7 @@ class ReportDetailScreen extends ConsumerWidget {
       loading: () => Scaffold(appBar: AppBar(title: const Text('Báo cáo')), body: const SkeletonList(count: 3)),
       error: (e, _) => Scaffold(
         appBar: AppBar(title: const Text('Báo cáo')),
-        body: ErrorState(error: e, onRetry: () => ref.invalidate(reportProvider(reportId))),
+        body: ErrorState(error: e, onRetry: () => ref.invalidate(reportDetailProvider(reportId))),
       ),
       data: (r) {
         if (r == null || user == null) {

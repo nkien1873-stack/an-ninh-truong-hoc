@@ -5,7 +5,7 @@ Backend đã deploy trên Internet tại `https://an-ninh-truong-hoc-api.onrende
 
 ```
 Điện thoại 1 ─┐
-Điện thoại 2 ─┼─► Web API trên Render ─► Firestore + thông báo đẩy
+Điện thoại 2 ─┼─► Web API trên Render ─► MongoDB Atlas (CSDL) + Firebase (đăng nhập, thông báo đẩy)
 Điện thoại 3 ─┘
 ```
 

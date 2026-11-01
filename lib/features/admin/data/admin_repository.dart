@@ -1,35 +1,26 @@
 import 'package:campus_core/campus_core.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/firebase/firebase_providers.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/network/polling.dart';
 import '../../auth/domain/app_user.dart';
 import '../../campus/campus_info.dart';
 
-/// Quản trị: đọc danh sách tài khoản từ Firestore (Rules chỉ cho quản trị đọc),
-/// mọi thao tác ghi đi qua backend.
+/// Quản trị quản lý tài khoản qua backend (`/admin/*` chỉ quản trị gọi được).
 class AdminRepository {
-  AdminRepository(this._db, this._api);
+  AdminRepository(this._api);
 
-  final FirebaseFirestore _db;
   final ApiClient _api;
 
-  List<AppUser> _users(QuerySnapshot<Map<String, dynamic>> s) {
-    final list = s.docs.map((d) => AppUser.fromMap(d.id, d.data())).toList()
-      ..sort((a, b) => a.nameOrEmail.toLowerCase().compareTo(b.nameOrEmail.toLowerCase()));
-    return list;
-  }
+  static List<AppUser> _users(Map<String, Object?> j) => [
+        for (final u in ((j['users'] as List?) ?? const []).whereType<Map>()) AppUser.fromApi(u.cast<String, Object?>()),
+      ]..sort((a, b) => a.nameOrEmail.toLowerCase().compareTo(b.nameOrEmail.toLowerCase()));
 
-  Stream<List<AppUser>> watchUsers(UserRole role) =>
-      _db.collection('users').where('role', isEqualTo: role.wire).limit(1000).snapshots().map(_users);
+  Stream<List<AppUser>> watchUsers(UserRole role) => pollApi(_api, '/admin/users?role=${role.wire}', _users);
 
   /// Bảo vệ và quản trị (để phân công).
-  Stream<List<AppUser>> watchStaff() => _db
-      .collection('users')
-      .where('role', whereIn: [UserRole.guard.wire, UserRole.admin.wire])
-      .snapshots()
-      .map(_users);
+  Stream<List<AppUser>> watchStaff() => pollApi(_api, '/admin/users', _users);
 
   Future<AppUser> createUser({
     required String email,
@@ -85,7 +76,7 @@ class AdminRepository {
 }
 
 final adminRepositoryProvider = Provider<AdminRepository>(
-  (ref) => AdminRepository(ref.watch(firestoreProvider), ref.watch(apiClientProvider)),
+  (ref) => AdminRepository(ref.watch(apiClientProvider)),
 );
 
 final usersByRoleProvider = StreamProvider.autoDispose.family<List<AppUser>, UserRole>(

@@ -10,6 +10,9 @@ services:
     dockerContext: .
     healthCheckPath: /
     envVars:
+      # CSDL chính. Chuỗi kết nối có mật khẩu, nhập trên Render.
+      - key: MONGODB_URI
+        sync: false
       - key: FIREBASE_PROJECT_ID
         value: sms-otp-26e31
       - key: GOOGLE_APPLICATION_CREDENTIALS

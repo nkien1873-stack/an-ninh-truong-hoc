@@ -121,10 +121,8 @@ List<Override> overrides(AppUser user) => [
       openReportsProvider.overrideWith((ref) => Stream.value(reports.where((r) => r.status.isOpen).toList())),
       reportsSinceProvider.overrideWith((ref, _) => Stream.value(reports)),
       assignedToMeProvider.overrideWith((ref) => Stream.value(reports.sublist(1, 3))),
-      reportProvider.overrideWith((ref, id) => Stream.value(reports.firstWhere((r) => r.id == id))),
-      reporterContactProvider.overrideWith((ref, id) => Stream.value(null)),
-      reportEventsProvider.overrideWith(
-        (ref, id) => Stream.value([
+      reportDetailProvider.overrideWith(
+        (ref, id) => Stream.value(ReportDetail(report: reports.firstWhere((r) => r.id == id), events: [
           ReportEventItem(
             id: 'e1',
             type: ReportEventType.created,
@@ -142,7 +140,7 @@ List<Override> overrides(AppUser user) => [
             actorRole: UserRole.reporter,
             note: 'Nhóm đó đang đi về phía cầu thang bộ phía tây.',
           ),
-        ]),
+        ])),
       ),
       staffProvider.overrideWith((ref) => Stream.value([person(UserRole.guard, 'Lê Văn Hùng', onDuty: true)])),
     ];

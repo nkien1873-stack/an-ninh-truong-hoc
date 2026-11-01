@@ -128,6 +128,8 @@ class PushNotifications {
   }
 
   Future<void> _showForeground(RemoteMessage message) async {
+    // Có sự cố hoặc cập nhật mới: các màn đang mở tải lại ngay.
+    _api().notifyChanged();
     final n = message.notification;
     if (n == null) return;
     final urgent = n.android?.channelId == urgentChannel.id;
