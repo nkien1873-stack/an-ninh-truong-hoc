@@ -17,7 +17,9 @@ class CampusConfigScreen extends ConsumerStatefulWidget {
 class _CampusConfigScreenState extends ConsumerState<CampusConfigScreen> {
   final _name = TextEditingController();
   final _hotline = TextEditingController();
-  final _buildings = TextEditingController();
+  final _newBuilding = TextEditingController();
+  List<String> _buildings = [];
+  String? _addError;
   bool _loaded = false;
   bool _saving = false;
   String? _error;
@@ -26,7 +28,7 @@ class _CampusConfigScreenState extends ConsumerState<CampusConfigScreen> {
   void dispose() {
     _name.dispose();
     _hotline.dispose();
-    _buildings.dispose();
+    _newBuilding.dispose();
     super.dispose();
   }
 
@@ -35,11 +37,30 @@ class _CampusConfigScreenState extends ConsumerState<CampusConfigScreen> {
     _loaded = true;
     _name.text = info.campusName;
     _hotline.text = info.hotline ?? '';
-    _buildings.text = info.buildings.join('\n');
+    _buildings = [...info.buildings];
   }
 
+  void _add() {
+    final name = _newBuilding.text.trim().replaceAll(RegExp(r'\s+'), ' ');
+    if (name.isEmpty) {
+      setState(() => _addError = 'Nhập tên khu vực.');
+      return;
+    }
+    if (_buildings.any((b) => b.toLowerCase() == name.toLowerCase())) {
+      setState(() => _addError = 'Khu vực này đã có.');
+      return;
+    }
+    setState(() {
+      _buildings = [..._buildings, name];
+      _addError = null;
+      _newBuilding.clear();
+    });
+  }
+
+  void _remove(String name) => setState(() => _buildings = _buildings.where((b) => b != name).toList());
+
   Future<void> _save() async {
-    final buildings = _buildings.text.split('\n').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    final buildings = _buildings;
     if (_name.text.trim().isEmpty) {
       setState(() => _error = 'Nhập tên trường.');
       return;
@@ -88,21 +109,57 @@ class _CampusConfigScreenState extends ConsumerState<CampusConfigScreen> {
               TextField(
                 controller: _hotline,
                 keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(
-                  labelText: 'Số trực an ninh',
-                  helperText: 'Hiện ở nút "Gọi trực an ninh" trên màn đăng nhập, trang chủ và màn khẩn cấp.',
+                decoration: const InputDecoration(labelText: 'Số trực an ninh'),
+              ),
+              const SizedBox(height: 24),
+              Text('Khu vực (${_buildings.length})', style: Theme.of(context).textTheme.titleSmall),
+              const SizedBox(height: 8),
+              Card(
+                child: Column(
+                  children: [
+                    for (final b in _buildings)
+                      ListTile(
+                        leading: const Icon(Icons.place_outlined),
+                        title: Text(b),
+                        trailing: IconButton(
+                          tooltip: 'Xoá $b',
+                          onPressed: () => _remove(b),
+                          icon: const Icon(Icons.delete_outline_rounded),
+                        ),
+                      ),
+                    if (_buildings.isEmpty)
+                      const ListTile(leading: Icon(Icons.info_outline_rounded), title: Text('Chưa có khu vực nào.')),
+                  ],
                 ),
               ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _buildings,
-                minLines: 6,
-                maxLines: 16,
-                decoration: const InputDecoration(
-                  labelText: 'Khu vực (mỗi dòng một khu vực)',
-                  alignLabelWithHint: true,
-                  helperText: 'Dùng cho ô "Toà nhà / khu vực" khi báo cáo và bộ lọc của bảo vệ.',
-                ),
+              const SizedBox(height: 12),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: TextField(
+                      key: const Key('new-building'),
+                      controller: _newBuilding,
+                      textCapitalization: TextCapitalization.sentences,
+                      textInputAction: TextInputAction.done,
+                      onSubmitted: (_) => _add(),
+                      onChanged: (_) {
+                        if (_addError != null) setState(() => _addError = null);
+                      },
+                      decoration: InputDecoration(labelText: 'Thêm khu vực', errorText: _addError),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: FilledButton.tonalIcon(
+                      key: const Key('add-building'),
+                      onPressed: _add,
+                      icon: const Icon(Icons.add_rounded),
+                      label: const Text('Thêm'),
+                    ),
+                  ),
+                ],
               ),
               if (_error != null) ...[const SizedBox(height: 12), InlineError(_error!)],
               const SizedBox(height: 16),

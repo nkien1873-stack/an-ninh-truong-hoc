@@ -2,8 +2,9 @@ import 'package:campus_core/campus_core.dart';
 import 'package:campus_safety_backend/backend.dart';
 import 'package:dart_frog/dart_frog.dart';
 
-/// PATCH /admin/users/{uid} {role?, active?, onDuty?, displayName?, memberType?}. Mở khoá thì đặt
-/// lại số lần báo cáo sai sự thật.
+/// PATCH /admin/users/{uid} {role?, active?, onDuty?, displayName?, memberType?, fakeReports?}.
+/// `fakeReports` (0 đến ngưỡng) chỉnh số lần báo cáo sai sự thật; đủ ngưỡng thì khoá người báo.
+/// Mở khoá thì đặt lại số lần (mặc định 0).
 /// DELETE /admin/users/{uid} : xoá tài khoản (báo cáo người đó đã gửi vẫn giữ).
 Future<Response> onRequest(RequestContext context, String uid) async {
   ensureMethod(context, {HttpMethod.patch, HttpMethod.delete});
@@ -45,17 +46,30 @@ Future<Response> onRequest(RequestContext context, String uid) async {
     throw ApiException.validation({'onDuty': 'Chỉ bảo vệ hoặc quản trị mới có trạng thái trực.'});
   }
 
+  const limit = FakeReportPolicy.lockThreshold;
+  var fakeReports = optionalInt(body, 'fakeReports');
+  if (fakeReports != null && (fakeReports < 0 || fakeReports > limit)) {
+    throw ApiException.validation({'fakeReports': 'Số lần báo sai từ 0 đến $limit.'});
+  }
+  final unlocking = (active ?? false) && !target.active;
+  // Mở khoá thì đếm lại (mặc định từ 0), nếu không lần báo sai kế tiếp sẽ khoá ngay.
+  if (unlocking) fakeReports = (fakeReports ?? 0).clamp(0, limit - 1);
+  // Quản trị nâng lên đủ ngưỡng thì khoá như khi hệ thống tự đếm.
+  final lockForFake = fakeReports != null &&
+      fakeReports >= limit &&
+      (role ?? target.role) == UserRole.reporter &&
+      (active ?? target.active);
+
   final updated = await services.users.update(
     uid,
     role: role,
-    active: active,
+    active: lockForFake ? false : active,
     // Hạ xuống người báo thì tự tắt trực.
     onDuty: (role != null && !role.isStaff) ? false : onDuty,
     displayName: name,
     memberType: memberType,
-    // Mở khoá thì đếm lại số lần báo sai, nếu không lần báo sai kế tiếp sẽ khoá ngay.
-    fakeReports: (active ?? false) && !target.active ? 0 : null,
+    fakeReports: fakeReports,
   );
-  if (active == false) await services.authTokens.revokeSessions(uid);
+  if (active == false || lockForFake) await services.authTokens.revokeSessions(uid);
   return Response.json(body: {'user': updated.toApiJson()});
 }

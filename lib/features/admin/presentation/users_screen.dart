@@ -20,6 +20,9 @@ class _RoleTab extends Notifier<UserRole> {
 
 final _roleTabProvider = NotifierProvider<_RoleTab, UserRole>(_RoleTab.new);
 
+/// Nhãn vai trò trong màn quản lý: người báo là sinh viên nên gọi luôn là "Sinh viên".
+String roleLabel(UserRole r) => r == UserRole.reporter ? 'Sinh viên' : r.label;
+
 /// Quản lý tài khoản: danh sách theo vai trò, tìm kiếm, tạo trước, phân quyền, khoá.
 class UsersScreen extends ConsumerStatefulWidget {
   const UsersScreen({super.key});
@@ -68,7 +71,7 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
                 segments: const [
                   ButtonSegment(value: UserRole.guard, label: Text('Bảo vệ')),
                   ButtonSegment(value: UserRole.admin, label: Text('Quản trị')),
-                  ButtonSegment(value: UserRole.reporter, label: Text('Người báo')),
+                  ButtonSegment(value: UserRole.reporter, label: Text('Sinh viên')),
                 ],
                 selected: {role},
                 onSelectionChanged: (v) => ref.read(_roleTabProvider.notifier).set(v.first),
@@ -102,7 +105,7 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
                 if (filtered.isEmpty) {
                   return EmptyState(
                     icon: Icons.person_search_outlined,
-                    title: list.isEmpty ? 'Chưa có tài khoản ${role.label.toLowerCase()}' : 'Không tìm thấy',
+                    title: list.isEmpty ? 'Chưa có tài khoản ${roleLabel(role).toLowerCase()}' : 'Không tìm thấy',
                     message: list.isEmpty ? 'Bấm "Thêm tài khoản" để tạo.' : 'Thử từ khoá khác.',
                   );
                 }
@@ -170,7 +173,7 @@ class _UserFormSheetState extends ConsumerState<UserFormSheet> {
   late UserRole _role = widget.existing?.role ?? widget.initialRole;
   late bool _active = widget.existing?.active ?? true;
   late bool _onDuty = widget.existing?.onDuty ?? false;
-  late MemberType _memberType = widget.existing?.memberType ?? MemberType.staff;
+  late int _fakeReports = widget.existing?.fakeReports ?? 0;
   final _formKey = GlobalKey<FormState>();
   String? _error;
   bool _saving = false;
@@ -199,7 +202,7 @@ class _UserFormSheetState extends ConsumerState<UserFormSheet> {
           phone: _phone.text,
           displayName: _name.text.trim(),
           role: _role,
-          memberType: _memberType,
+          memberType: _role == UserRole.reporter ? MemberType.student : MemberType.staff,
           onDuty: _role.isStaff && _onDuty,
         );
       } else {
@@ -210,7 +213,9 @@ class _UserFormSheetState extends ConsumerState<UserFormSheet> {
           role: _role != e.role ? _role : null,
           active: _active != e.active ? _active : null,
           onDuty: _onDuty != e.onDuty ? (_role.isStaff && _onDuty) : null,
-          memberType: _memberType != e.memberType ? _memberType : null,
+          // Đổi vai trò thì đối tượng theo vai trò mới (không còn ô chọn đối tượng riêng).
+          memberType: _role == e.role ? null : (_role == UserRole.reporter ? MemberType.student : MemberType.staff),
+          fakeReports: _fakeReports != e.fakeReports ? _fakeReports : null,
         );
       }
       if (mounted) Navigator.pop(context);
@@ -278,13 +283,7 @@ class _UserFormSheetState extends ConsumerState<UserFormSheet> {
                 enabled: _isNew,
                 keyboardType: TextInputType.emailAddress,
                 autocorrect: false,
-                decoration: InputDecoration(
-                  labelText: 'Email',
-                  helperText: _isNew
-                      ? 'Người này bấm "Đăng ký ngay" bằng đúng email này để đặt tên đăng nhập và mật khẩu; '
-                          'vai trò bạn chọn được giữ nguyên.'
-                      : null,
-                ),
+                decoration: const InputDecoration(labelText: 'Email'),
                 validator: _isNew ? EmailAddress.validate : null,
               ),
               const SizedBox(height: 12),
@@ -293,10 +292,7 @@ class _UserFormSheetState extends ConsumerState<UserFormSheet> {
                 enabled: _isNew,
                 keyboardType: TextInputType.phone,
                 inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9+ ]'))],
-                decoration: InputDecoration(
-                  labelText: 'Số điện thoại (không bắt buộc)',
-                  helperText: _isNew ? 'Để bảo vệ liên hệ khi cần.' : null,
-                ),
+                decoration: const InputDecoration(labelText: 'Số điện thoại (không bắt buộc)'),
                 validator: _isNew ? validateOptionalPhone : null,
               ),
               const SizedBox(height: 12),
@@ -312,20 +308,11 @@ class _UserFormSheetState extends ConsumerState<UserFormSheet> {
               SegmentedButton<UserRole>(
                 segments: [
                   for (final r in UserRole.values)
-                    ButtonSegment(value: r, label: Text(r.label), enabled: !widget.isSelf || r == UserRole.admin),
+                    ButtonSegment(value: r, label: Text(roleLabel(r)), enabled: !widget.isSelf || r == UserRole.admin),
                 ],
                 selected: {_role},
                 onSelectionChanged: (v) => setState(() => _role = v.first),
               ),
-              if (_role == UserRole.reporter) ...[
-                const SizedBox(height: 16),
-                DropdownButtonFormField<MemberType>(
-                  initialValue: _memberType,
-                  decoration: const InputDecoration(labelText: 'Đối tượng'),
-                  items: [for (final m in MemberType.values) DropdownMenuItem(value: m, child: Text(m.label))],
-                  onChanged: (v) => setState(() => _memberType = v ?? _memberType),
-                ),
-              ],
               if (_role.isStaff)
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
@@ -334,12 +321,25 @@ class _UserFormSheetState extends ConsumerState<UserFormSheet> {
                   title: const Text('Đang trực'),
                   subtitle: const Text('Nhận cảnh báo khi có sự cố mới.'),
                 ),
-              if (!_isNew) _FakeReportCount(user: widget.existing!),
+              if (!_isNew && !widget.isSelf) ...[
+                const SizedBox(height: 8),
+                _FakeReportStepper(
+                  value: _fakeReports,
+                  willLock: _role == UserRole.reporter && _active && _fakeReports >= FakeReportPolicy.lockThreshold,
+                  onChanged: (v) => setState(() => _fakeReports = v),
+                ),
+              ],
               if (!_isNew)
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   value: _active,
-                  onChanged: widget.isSelf ? null : (v) => setState(() => _active = v),
+                  // Mở khoá thì đếm lại số lần báo sai từ 0 (backend cũng làm vậy).
+                  onChanged: widget.isSelf
+                      ? null
+                      : (v) => setState(() {
+                            _active = v;
+                            if (v && !widget.existing!.active) _fakeReports = 0;
+                          }),
                   title: const Text('Cho phép đăng nhập'),
                   subtitle: Text(widget.isSelf
                       ? 'Bạn không thể tự khoá tài khoản của mình.'
@@ -369,33 +369,58 @@ class _UserFormSheetState extends ConsumerState<UserFormSheet> {
   }
 }
 
-/// Số lần bị bảo vệ/quản trị đánh dấu báo cáo sai sự thật. Người báo đủ
-/// [FakeReportPolicy.lockThreshold] lần thì tự bị khoá; mở khoá thì đếm lại từ 0.
-class _FakeReportCount extends StatelessWidget {
-  const _FakeReportCount({required this.user});
+/// Số lần báo cáo sai sự thật, quản trị chỉnh bằng nút trừ/cộng (0 đến
+/// [FakeReportPolicy.lockThreshold]). Sinh viên đủ ngưỡng thì tài khoản bị khoá khi lưu.
+class _FakeReportStepper extends StatelessWidget {
+  const _FakeReportStepper({required this.value, required this.willLock, required this.onChanged});
 
-  final AppUser user;
+  final int value;
+  final bool willLock;
+  final ValueChanged<int> onChanged;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final count = user.fakeReports;
     const limit = FakeReportPolicy.lockThreshold;
-    final reached = count >= limit;
-    final color = count == 0 ? theme.colorScheme.onSurfaceVariant : theme.colorScheme.error;
-    return ListTile(
+    final color = value == 0 ? theme.colorScheme.onSurface : theme.colorScheme.error;
+    return Column(
       key: const Key('fake-report-count'),
-      contentPadding: EdgeInsets.zero,
-      leading: Icon(Icons.report_gmailerrorred_rounded, color: color),
-      title: const Text('Số lần báo cáo sai sự thật'),
-      subtitle: Text(
-        reached && !user.active
-            ? 'Đã tự khoá vì báo sai $limit lần. Bật "Cho phép đăng nhập" để mở khoá và đếm lại từ 0.'
-            : user.role == UserRole.reporter
-                ? 'Đủ $limit lần thì tài khoản tự bị khoá.'
-                : 'Chỉ tài khoản Người báo mới tự bị khoá.',
-      ),
-      trailing: Text('$count/$limit', style: theme.textTheme.titleLarge?.copyWith(color: color)),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(child: Text('Số lần cảnh báo', style: theme.textTheme.titleSmall)),
+            IconButton.outlined(
+              key: const Key('fake-minus'),
+              tooltip: 'Bớt một lần',
+              onPressed: value > 0 ? () => onChanged(value - 1) : null,
+              icon: const Icon(Icons.remove_rounded),
+            ),
+            SizedBox(
+              width: 56,
+              child: Text(
+                '$value/$limit',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.titleLarge?.copyWith(color: color),
+              ),
+            ),
+            IconButton.outlined(
+              key: const Key('fake-plus'),
+              tooltip: 'Thêm một lần',
+              onPressed: value < limit ? () => onChanged(value + 1) : null,
+              icon: const Icon(Icons.add_rounded),
+            ),
+          ],
+        ),
+        if (willLock)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              'Đủ $limit lần: tài khoản sẽ bị khoá khi lưu.',
+              style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.error),
+            ),
+          ),
+      ],
     );
   }
 }

@@ -13,7 +13,9 @@ import 'package:campus_safety/core/theme/app_theme.dart';
 import 'package:campus_safety/core/widgets/offline_banner.dart';
 import 'package:campus_safety/features/admin/data/admin_repository.dart';
 import 'package:campus_safety/features/admin/presentation/dashboard_screen.dart';
+import 'package:campus_safety/features/admin/presentation/campus_config_screen.dart';
 import 'package:campus_safety/features/admin/presentation/manage_screen.dart';
+import 'package:campus_safety/features/admin/presentation/users_screen.dart';
 import 'package:campus_safety/features/auth/application/session.dart';
 import 'package:campus_safety/features/auth/domain/app_user.dart';
 import 'package:campus_safety/features/auth/domain/auth_repository.dart';
@@ -342,6 +344,31 @@ void main() {
         },
       ));
   testWidgets('settings student', (t) => shoot(t, 'settings_student_light', shell(AppRoutes.settings, const SettingsScreen()), user: student));
+  testWidgets('edit account', (t) => shoot(
+        t,
+        'edit_account_light',
+        Scaffold(
+          appBar: AppBar(title: const Text('Sửa tài khoản')),
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+            child: UserFormSheet(
+              existing: AppUser(
+                uid: 'u9',
+                email: 'doduu49@gmail.com',
+                phone: '',
+                displayName: 'Duy',
+                role: UserRole.reporter,
+                memberType: MemberType.student,
+                active: true,
+                onDuty: false,
+                fakeReports: 2,
+              ),
+            ),
+          ),
+        ),
+        user: admin,
+      ));
+  testWidgets('campus config', (t) => shoot(t, 'campus_config_light', const CampusConfigScreen(), user: admin));
   testWidgets('my reports', (t) => shoot(t, 'my_reports_light', shell(AppRoutes.myReports, const MyReportsScreen()), user: student));
   testWidgets('manage', (t) => shoot(t, 'manage_light', shell(AppRoutes.manage, const ManageScreen()), user: admin));
   testWidgets('settings guard', (t) => shoot(t, 'settings_guard_light', shell(AppRoutes.settings, const SettingsScreen()), user: guard));
