@@ -158,6 +158,61 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('máy thật (900x2000, bàn phím 742 px): ô ghi chú và nút gửi nằm ngay trên bàn phím, không có khoảng trống',
+      (tester) async {
+    tester.view.physicalSize = const Size(900, 2000);
+    tester.view.devicePixelRatio = 2.5;
+    tester.view.padding = const FakeViewPadding(top: 100, bottom: 60);
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        signedInUserProvider.overrideWithValue(_student),
+        campusInfoProvider.overrideWith(
+          (ref) async => const CampusInfo(campusName: 'Trường thử nghiệm', hotline: '0932189062', buildings: ['Toà A1']),
+        ),
+        reportRepositoryProvider.overrideWithValue(FakeReportRepository()),
+        imageServiceProvider.overrideWithValue(FakeImageService()),
+        locationServiceProvider.overrideWithValue(ControlledLocation()),
+      ],
+      child: MaterialApp(
+        theme: AppTheme.light(),
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        supportedLocales: const [Locale('vi')],
+        locale: const Locale('vi'),
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(onPressed: () => showEmergencySheet(context), child: const Text('SOS')),
+          ),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('SOS'));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+
+    // Chạm vào ô ghi chú: bàn phím bật lên.
+    final note = find.widgetWithText(TextField, 'Ghi chú ngắn');
+    await tester.ensureVisible(note);
+    await tester.showKeyboard(note);
+    tester.view.viewInsets = const FakeViewPadding(bottom: 742);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(tester.takeException(), isNull);
+
+    const keyboardTop = (2000 - 742) / 2.5;
+    final noteBox = tester.getRect(note);
+    final send = tester.getRect(find.byKey(const Key('send-emergency')));
+    expect(noteBox.bottom, lessThanOrEqualTo(send.top), reason: 'ô ghi chú nằm trên nút gửi, không bị che');
+    expect(noteBox.top, greaterThan(0), reason: 'ô ghi chú hiện trên màn hình');
+    expect(send.bottom, lessThanOrEqualTo(keyboardTop), reason: 'nút gửi không bị bàn phím che');
+    // Lỗi cũ: giữa nội dung và bàn phím có khoảng trống cao bằng cả bàn phím (~300 dp). Giờ chỉ còn
+    // lề của khung nút (12 dp) và vùng an toàn (24 dp, máy thật bỏ đi khi bàn phím mở).
+    expect(keyboardTop - send.bottom, lessThan(50), reason: 'không còn khoảng trống lớn trên bàn phím');
+    // ignore: avoid_print
+    print('ghi chu ${noteBox.top.round()}-${noteBox.bottom.round()}, nut gui ${send.top.round()}-${send.bottom.round()}, '
+        'mep ban phim ${keyboardTop.round()} (dp)');
+  });
+
   group('bản nháp SOS khi bấm Home', () {
     setUp(() => SharedPreferences.setMockInitialValues({}));
 
