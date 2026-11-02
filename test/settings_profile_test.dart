@@ -21,6 +21,12 @@ void main() {
     onDuty: false,
   );
 
+  test('chữ viết tắt lấy từ hai từ cuối của họ tên', () {
+    expect(initialsOf('Đỗ Hồng Anh Duy'), 'AD');
+    expect(initialsOf('kien'), 'K');
+    expect(initialsOf('  '), '?');
+  });
+
   testWidgets('hồ sơ gọn chỉ hiện họ tên; bấm vào xem đầy đủ, sửa được, không tự đổi Sinh viên/Giảng viên', (tester) async {
     tester.view.physicalSize = const Size(1200, 3000);
     tester.view.devicePixelRatio = 1.0;
@@ -41,7 +47,8 @@ void main() {
       ),
     ));
     await tester.pumpAndSettle();
-    // Thẻ hồ sơ gọn: chỉ họ tên; bấm vào mới thấy đầy đủ và sửa được.
+    // Thẻ hồ sơ gọn: chữ viết tắt, họ tên, email; bấm vào mới thấy đầy đủ và sửa được.
+    expect(find.text('MK'), findsOneWidget);
     expect(find.text('khoa.tran'), findsNothing);
 
     await tester.tap(find.text('Trần Minh Khoa'));

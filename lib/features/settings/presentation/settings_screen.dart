@@ -15,6 +15,14 @@ import '../../auth/presentation/profile_setup_screen.dart' show validateOptional
 import '../../campus/campus_info.dart';
 
 /// Cài đặt: hồ sơ, trạng thái trực (bảo vệ/quản trị), giao diện sáng/tối, ngôn ngữ, đăng xuất.
+/// Hai chữ đầu của hai từ cuối trong họ tên ("Đỗ Hồng Anh Duy" → "AD"), viết hoa.
+String initialsOf(String name) {
+  final words = name.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+  if (words.isEmpty) return '?';
+  final picked = words.length == 1 ? words : words.sublist(words.length - 2);
+  return picked.map((w) => w.characters.first.toUpperCase()).join();
+}
+
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
@@ -64,12 +72,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
-          const SectionTitle('Hồ sơ'),
+          // Kiểu ứng dụng sinh viên: chữ viết tắt, "Họ tên (MSSV)", email; bấm vào để xem đủ và sửa.
           Card(
             child: ListTile(
-              leading: const Icon(Icons.account_circle_outlined, size: 32),
-              title: Text(user.nameOrEmail),
-              subtitle: const Text('Xem và sửa thông tin cá nhân'),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              leading: CircleAvatar(
+                radius: 28,
+                backgroundColor: theme.colorScheme.primary,
+                foregroundColor: theme.colorScheme.onPrimary,
+                child: Text(initialsOf(user.nameOrEmail), style: theme.textTheme.titleMedium?.copyWith(
+                  color: theme.colorScheme.onPrimary,
+                  fontWeight: FontWeight.w700,
+                )),
+              ),
+              title: Text(
+                user.studentId.isEmpty ? user.nameOrEmail : '${user.nameOrEmail} (${user.studentId})',
+                style: theme.textTheme.titleMedium,
+              ),
+              subtitle: Text(user.email),
               trailing: const Icon(Icons.chevron_right_rounded),
               onTap: () => showFormPage<void>(context, title: 'Hồ sơ', child: _EditProfileSheet(user: user)),
             ),
