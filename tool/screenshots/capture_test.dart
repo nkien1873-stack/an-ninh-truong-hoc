@@ -122,25 +122,63 @@ List<Override> overrides(AppUser user) => [
       reportsSinceProvider.overrideWith((ref, _) => Stream.value(reports)),
       assignedToMeProvider.overrideWith((ref) => Stream.value(reports.sublist(1, 3))),
       reportDetailProvider.overrideWith(
-        (ref, id) => Stream.value(ReportDetail(report: reports.firstWhere((r) => r.id == id), events: [
-          ReportEventItem(
-            id: 'e1',
-            type: ReportEventType.created,
-            createdAt: now.subtract(const Duration(minutes: 12)),
-            actorName: 'Người báo (ẩn danh)',
-            actorRole: UserRole.reporter,
-            toStatus: ReportStatus.submitted,
-            note: 'Báo cáo khẩn cấp',
-          ),
-          ReportEventItem(
-            id: 'e2',
-            type: ReportEventType.comment,
-            createdAt: now.subtract(const Duration(minutes: 9)),
-            actorName: 'Người báo (ẩn danh)',
-            actorRole: UserRole.reporter,
-            note: 'Nhóm đó đang đi về phía cầu thang bộ phía tây.',
-          ),
-        ])),
+        (ref, id) {
+          final report = reports.firstWhere((r) => r.id == id);
+          return Stream.value(ReportDetail(
+            report: report,
+            assignee: report.assigneeName == null
+                ? null
+                : AssigneeContact(uid: 'uid-guard', displayName: report.assigneeName!, phone: '0987654321'),
+            events: report.anonymous
+                ? [
+                    ReportEventItem(
+                      id: 'e1',
+                      type: ReportEventType.created,
+                      createdAt: now.subtract(const Duration(minutes: 12)),
+                      actorName: 'Người báo (ẩn danh)',
+                      actorRole: UserRole.reporter,
+                      toStatus: ReportStatus.submitted,
+                      note: 'Báo cáo khẩn cấp',
+                    ),
+                    ReportEventItem(
+                      id: 'e2',
+                      type: ReportEventType.comment,
+                      createdAt: now.subtract(const Duration(minutes: 9)),
+                      actorName: 'Người báo (ẩn danh)',
+                      actorRole: UserRole.reporter,
+                      note: 'Nhóm đó đang đi về phía cầu thang bộ phía tây.',
+                    ),
+                  ]
+                : [
+                    ReportEventItem(
+                      id: 'e1',
+                      type: ReportEventType.created,
+                      createdAt: report.createdAt,
+                      actorName: 'Trần Minh Khoa',
+                      actorUid: 'uid-reporter',
+                      actorRole: UserRole.reporter,
+                      toStatus: ReportStatus.submitted,
+                    ),
+                    ReportEventItem(
+                      id: 'e2',
+                      type: ReportEventType.status,
+                      createdAt: report.createdAt.add(const Duration(minutes: 3)),
+                      actorName: 'Lê Văn Hùng',
+                      actorRole: UserRole.guard,
+                      fromStatus: ReportStatus.submitted,
+                      toStatus: report.status,
+                    ),
+                    ReportEventItem(
+                      id: 'e3',
+                      type: ReportEventType.comment,
+                      createdAt: report.createdAt.add(const Duration(minutes: 4)),
+                      actorName: 'Lê Văn Hùng',
+                      actorRole: UserRole.guard,
+                      note: 'Mình đang tới bãi xe, bạn đứng gần cổng chờ nhé.',
+                    ),
+                  ],
+          ));
+        },
       ),
       staffProvider.overrideWith((ref) => Stream.value([person(UserRole.guard, 'Lê Văn Hùng', onDuty: true)])),
     ];
@@ -254,6 +292,18 @@ void main() {
           await t.pump(const Duration(milliseconds: 400));
           await t.pump(const Duration(seconds: 1));
         },
+      ));
+  testWidgets('detail student waiting', (t) => shoot(
+        t,
+        'detail_student_waiting_light',
+        const ReportDetailScreen(reportId: 'K7Q4'),
+        user: student,
+      ));
+  testWidgets('detail student assigned', (t) => shoot(
+        t,
+        'detail_student_assigned_light',
+        const ReportDetailScreen(reportId: 'M2PX'),
+        user: student,
       ));
   testWidgets('my reports', (t) => shoot(t, 'my_reports_light', shell(AppRoutes.myReports, const MyReportsScreen()), user: student));
   testWidgets('manage', (t) => shoot(t, 'manage_light', shell(AppRoutes.manage, const ManageScreen()), user: admin));

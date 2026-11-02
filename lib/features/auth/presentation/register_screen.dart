@@ -117,8 +117,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 forceErrorText: _fieldErrors['studentId'],
                 decoration: const InputDecoration(
                   labelText: 'Mã số sinh viên (MSSV)',
-                  helperText: 'Bắt buộc với sinh viên, mỗi MSSV một tài khoản. Bảo vệ được cấp tài khoản thì bỏ trống.',
-                  helperMaxLines: 2,
+                  helperText: 'Sinh viên bắt buộc nhập, mỗi MSSV một tài khoản. Bảo vệ được cấp tài khoản thì bỏ trống.',
+                  helperMaxLines: 3,
                   prefixIcon: Icon(Icons.school_outlined),
                   counterText: '',
                 ),
