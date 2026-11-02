@@ -186,7 +186,9 @@ class _EmergencyButtonState extends ConsumerState<EmergencyButton> {
   }
 
   Future<void> _restoreDraft() async {
-    final draft = await ref.read(emergencyDraftStoreProvider).load();
+    final uid = ref.read(signedInUserProvider)?.uid;
+    if (uid == null) return;
+    final draft = await ref.read(emergencyDraftStoreProvider).load(uid);
     if (draft == null || !mounted) return;
     // Sheet vẫn đang mở (app chỉ ở nền rồi quay lại) thì không mở thêm.
     if (ModalRoute.of(context)?.isCurrent == false) return;

@@ -89,8 +89,10 @@ class _EmergencySheetState extends ConsumerState<EmergencySheet> {
 
   /// Lưu lựa chọn hiện tại để mở lại được nếu app bị đóng khi đang ở nền.
   void _saveDraft() {
-    if (_result != null) return;
+    final uid = ref.read(signedInUserProvider)?.uid;
+    if (_result != null || uid == null) return;
     unawaited(ref.read(emergencyDraftStoreProvider).save(EmergencyDraft(
+          uid: uid,
           type: _type,
           building: _building,
           note: _note.text,

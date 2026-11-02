@@ -163,11 +163,16 @@ void main() {
     test('lưu, đọc lại; quá 15 phút thì bỏ', () async {
       final store = EmergencyDraftStore();
       final at = DateTime(2026, 11, 2, 19, 58);
-      await store.save(EmergencyDraft(type: IncidentType.fire, building: 'Toà A1', note: 'Khói ở tầng 3', anonymous: true, savedAt: at));
-      final back = (await store.load(now: at.add(const Duration(minutes: 5))))!;
+      final draft = EmergencyDraft(uid: 'u1', type: IncidentType.fire, building: 'Toà A1', note: 'Khói ở tầng 3', anonymous: true, savedAt: at);
+      await store.save(draft);
+      final back = (await store.load('u1', now: at.add(const Duration(minutes: 5))))!;
       expect((back.type, back.building, back.note, back.anonymous), (IncidentType.fire, 'Toà A1', 'Khói ở tầng 3', true));
-      expect(await store.load(now: at.add(const Duration(minutes: 16))), isNull);
-      expect(await store.load(now: at), isNull, reason: 'bản nháp quá hạn đã bị xoá');
+      expect(await store.load('u1', now: at.add(const Duration(minutes: 16))), isNull);
+      expect(await store.load('u1', now: at), isNull, reason: 'bản nháp quá hạn đã bị xoá');
+
+      await store.save(draft);
+      expect(await store.load('u2', now: at), isNull, reason: 'người khác đăng nhập máy này không thấy');
+      expect(await store.load('u1', now: at), isNull, reason: 'và bản nháp đã bị xoá');
     });
 
     testWidgets('mở lại từ bản nháp giữ nguyên lựa chọn; người dùng tự đóng thì xoá bản nháp', (tester) async {
@@ -197,6 +202,7 @@ void main() {
                 onPressed: () => showEmergencySheet(
                   context,
                   restore: EmergencyDraft(
+                    uid: 'u1',
                     type: IncidentType.fight,
                     building: 'Toà A1',
                     note: 'Hai nhóm đánh nhau',
@@ -220,12 +226,12 @@ void main() {
 
       await tester.tap(find.widgetWithText(ChoiceChip, IncidentType.fire.label));
       await tester.pump(const Duration(milliseconds: 300));
-      expect((await store.load())!.type, IncidentType.fire);
+      expect((await store.load('u1'))!.type, IncidentType.fire);
 
       // Người dùng bấm Back để đóng sheet.
       await tester.binding.handlePopRoute();
       await tester.pump(const Duration(seconds: 1));
-      expect(await store.load(), isNull);
+      expect(await store.load('u1'), isNull);
     });
   });
 
