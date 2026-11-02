@@ -46,9 +46,12 @@ class _StartWalkForm extends ConsumerStatefulWidget {
 }
 
 class _StartWalkFormState extends ConsumerState<_StartWalkForm> {
-  // Chỉ dùng khi trường chưa cấu hình danh sách khu vực.
+  // Nơi đến tự nhập: khi chọn "Khác" hoặc trường chưa cấu hình danh sách khu vực.
   final _destination = TextEditingController();
   String? _picked;
+
+  /// Giá trị của mục "Khác (tự nhập)" trong danh sách.
+  static const _custom = '\u0000custom';
   final _formKey = GlobalKey<FormState>();
   int _minutes = 15;
   bool _starting = false;
@@ -75,7 +78,7 @@ class _StartWalkFormState extends ConsumerState<_StartWalkForm> {
       // Không có GPS vẫn cho đi; nơi đến được dùng làm khu vực khi báo bảo vệ.
     }
     try {
-      await ref.read(walkRepositoryProvider).start(destination: _picked ?? _destination.text, minutes: _minutes, at: at);
+      await ref.read(walkRepositoryProvider).start(destination: (_picked == null || _picked == _custom) ? _destination.text : _picked!, minutes: _minutes, at: at);
       unawaited(HapticFeedback.mediumImpact());
     } on ApiError catch (e) {
       setState(() => _error = e.fieldErrors.values.firstOrNull ?? e.message);
@@ -88,6 +91,7 @@ class _StartWalkFormState extends ConsumerState<_StartWalkForm> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final buildings = ref.watch(campusInfoProvider).value?.buildings ?? const <String>[];
+    final typing = buildings.isEmpty || _picked == _custom;
     return Form(
       key: _formKey,
       child: ListView(
@@ -104,21 +108,30 @@ class _StartWalkFormState extends ConsumerState<_StartWalkForm> {
                 labelText: 'Bạn đang đi tới đâu?',
                 prefixIcon: Icon(Icons.place_outlined),
               ),
-              items: [for (final b in buildings) DropdownMenuItem(value: b, child: Text(b))],
+              items: [
+                for (final b in buildings) DropdownMenuItem(value: b, child: Text(b)),
+                const DropdownMenuItem(value: _custom, child: Text('Khác (tự nhập)')),
+              ],
               onChanged: (v) => setState(() => _picked = v),
               validator: (v) => v == null ? 'Chọn nơi bạn đang đi tới.' : null,
-            )
-          else
+            ),
+          if (typing) ...[
+            if (buildings.isNotEmpty) const SizedBox(height: 12),
             TextFormField(
+              key: const Key('walk-destination-custom'),
               controller: _destination,
+              autofocus: buildings.isNotEmpty,
               textCapitalization: TextCapitalization.sentences,
               maxLength: 80,
-              decoration: const InputDecoration(
-                labelText: 'Bạn đang đi tới đâu?',
-                prefixIcon: Icon(Icons.place_outlined),
+              decoration: InputDecoration(
+                labelText: buildings.isEmpty ? 'Bạn đang đi tới đâu?' : 'Nhập nơi đến',
+                hintText: 'Ví dụ: Nhà xe khu B, cổng sau',
+                prefixIcon: const Icon(Icons.edit_location_alt_outlined),
+                counterText: '',
               ),
               validator: (v) => (v?.trim().length ?? 0) < 2 ? 'Nhập nơi bạn đang đi tới.' : null,
             ),
+          ],
           const SizedBox(height: 16),
           Text('Dự kiến tới nơi sau', style: theme.textTheme.titleSmall),
           const SizedBox(height: 8),
