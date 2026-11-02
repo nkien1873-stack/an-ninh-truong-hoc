@@ -14,6 +14,10 @@ Thông báo sự cố gửi qua **thông báo đẩy FCM** trong app.
   (banner trong app + push tới mọi người).
 - Mọi người thấy **banner cảnh báo toàn trường** ở đầu trang chủ / Sự cố / Tổng quan khi quản trị gửi.
 
+**Mở lần đầu** (sau khi giải nén zip hoặc clone): bấm đúp `chay-lan-dau.bat` để tải thư viện cho app, backend và
+`campus_core` (hoặc chạy `flutter pub get`), rồi mở thư mục trong Android Studio. Chưa tải thư viện thì Android Studio
+gạch đỏ mọi `import`.
+
 Tài liệu liên quan: [`DESIGN.md`](DESIGN.md) (hướng thiết kế và ghi chú audit `/impeccable`), [`PRODUCT.md`](PRODUCT.md) (bối cảnh sản phẩm).
 
 ---
