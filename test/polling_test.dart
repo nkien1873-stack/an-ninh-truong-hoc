@@ -111,6 +111,8 @@ void main() {
     final sub = pollApi(api, '/a', (j) => j['n'], every: const Duration(milliseconds: 5)).listen((_) {});
     await settle();
     await sub.cancel();
+    // Lần tải đã gửi trước khi huỷ có thể chưa kịp tới máy chủ giả: chờ nó xong rồi mới đếm.
+    await settle();
     final after = gets;
     await settle();
     api.notifyChanged();

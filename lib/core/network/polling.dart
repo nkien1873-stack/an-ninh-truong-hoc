@@ -27,6 +27,8 @@ Stream<T> pollApi<T>(
   var again = false;
 
   Future<void> load() async {
+    // Đã huỷ lắng nghe thì không tải nữa, kể cả lần tải được hẹn khi lần trước còn đang chạy.
+    if (controller.isClosed) return;
     if (loading) {
       again = true;
       return;
