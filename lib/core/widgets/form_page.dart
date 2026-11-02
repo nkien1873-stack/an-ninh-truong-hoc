@@ -5,7 +5,8 @@ import 'package:material_ui/material_ui.dart';
 /// Không dùng bottom sheet cho form có bàn phím: trên một số máy Android (Xiaomi) sheet bị tính
 /// khoảng bàn phím hai lần, để lại khoảng trống lớn và che mất nút. Scaffold tự co lại đúng.
 Future<T?> showFormPage<T>(BuildContext context, {required String title, required Widget child}) =>
-    Navigator.of(context).push<T>(MaterialPageRoute(
+    // Navigator gốc: phủ cả thanh điều hướng dưới, không lồng trong khung của các tab.
+    Navigator.of(context, rootNavigator: true).push<T>(MaterialPageRoute(
       fullscreenDialog: true,
       builder: (_) => Scaffold(
         appBar: AppBar(title: Text(title)),

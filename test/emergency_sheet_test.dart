@@ -4,6 +4,7 @@ import 'package:campus_core/campus_core.dart';
 import 'package:campus_safety/core/services/image_service.dart';
 import 'package:campus_safety/core/services/location_service.dart';
 import 'package:campus_safety/core/theme/app_theme.dart';
+import 'package:campus_safety/core/widgets/keyboard_inset_fix.dart';
 import 'package:campus_safety/features/auth/application/session.dart';
 import 'package:campus_safety/features/auth/domain/app_user.dart';
 import 'package:campus_safety/features/campus/campus_info.dart';
@@ -158,7 +159,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('máy thật (900x2000, bàn phím 742 px): ô ghi chú và nút gửi nằm ngay trên bàn phím, không có khoảng trống',
+  testWidgets('máy thật (900x2000, bàn phím 742 px), mở từ tab trong khung có thanh điều hướng: không có khoảng trống',
       (tester) async {
     tester.view.physicalSize = const Size(900, 2000);
     tester.view.devicePixelRatio = 2.5;
@@ -179,10 +180,16 @@ void main() {
         localizationsDelegates: GlobalMaterialLocalizations.delegates,
         supportedLocales: const [Locale('vi')],
         locale: const Locale('vi'),
+        // Như HomeShell: trang chủ nằm trong Navigator riêng của khung có thanh điều hướng dưới.
+        // Khung này đã tự co lại khi bàn phím mở; mở SOS bên trong nó là bị trừ bàn phím hai lần.
         home: Scaffold(
-          body: Builder(
-            builder: (context) => TextButton(onPressed: () => showEmergencySheet(context), child: const Text('SOS')),
+          body: Navigator(
+            onGenerateRoute: (_) => MaterialPageRoute<void>(
+              builder: (context) =>
+                  TextButton(onPressed: () => showEmergencySheet(context), child: const Text('SOS')),
+            ),
           ),
+          bottomNavigationBar: const SizedBox(height: 80, child: Text('Thanh điều hướng')),
         ),
       ),
     ));
@@ -211,6 +218,64 @@ void main() {
     // ignore: avoid_print
     print('ghi chu ${noteBox.top.round()}-${noteBox.bottom.round()}, nut gui ${send.top.round()}-${send.bottom.round()}, '
         'mep ban phim ${keyboardTop.round()} (dp)');
+  });
+
+  test('khoảng bàn phím: trừ phần cửa sổ hệ điều hành đã co lại', () {
+    // Máy bình thường: cửa sổ giữ nguyên, chừa đủ bàn phím.
+    expect(KeyboardInsetFix.effectiveInset(reported: 297, baselineHeight: 800, height: 800), 297);
+    // Samsung/Xiaomi: cửa sổ đã co 297 dp cho bàn phím, không chừa thêm nữa.
+    expect(KeyboardInsetFix.effectiveInset(reported: 297, baselineHeight: 800, height: 503), 0);
+    // Co một phần thì chỉ chừa phần còn lại.
+    expect(KeyboardInsetFix.effectiveInset(reported: 297, baselineHeight: 800, height: 700), 197);
+  });
+
+  testWidgets('máy co cửa sổ cho bàn phím mà vẫn báo khoảng bàn phím (Samsung, Xiaomi): không bị trừ hai lần',
+      (tester) async {
+    tester.view.physicalSize = const Size(900, 2000);
+    tester.view.devicePixelRatio = 2.5;
+    tester.view.padding = const FakeViewPadding(top: 100, bottom: 60);
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        signedInUserProvider.overrideWithValue(_student),
+        campusInfoProvider.overrideWith(
+          (ref) async => const CampusInfo(campusName: 'Trường thử nghiệm', hotline: '0932189062', buildings: ['Toà A1']),
+        ),
+        reportRepositoryProvider.overrideWithValue(FakeReportRepository()),
+        imageServiceProvider.overrideWithValue(FakeImageService()),
+        locationServiceProvider.overrideWithValue(ControlledLocation()),
+      ],
+      child: MaterialApp(
+        theme: AppTheme.light(),
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        supportedLocales: const [Locale('vi')],
+        locale: const Locale('vi'),
+        builder: (context, child) => KeyboardInsetFix(child: child!),
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(onPressed: () => showEmergencySheet(context), child: const Text('SOS')),
+          ),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('SOS'));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    final note = find.widgetWithText(TextField, 'Ghi chú ngắn');
+    await tester.ensureVisible(note);
+    await tester.showKeyboard(note);
+    // Đúng như máy thật: cửa sổ app bị co còn 1258 px VÀ vẫn báo bàn phím 742 px.
+    tester.view.physicalSize = const Size(900, 2000 - 742);
+    tester.view.viewInsets = const FakeViewPadding(bottom: 742);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(tester.takeException(), isNull);
+
+    const windowBottom = (2000 - 742) / 2.5;
+    final send = tester.getRect(find.byKey(const Key('send-emergency')));
+    expect(send.bottom, lessThanOrEqualTo(windowBottom));
+    expect(windowBottom - send.bottom, lessThan(50), reason: 'nút gửi nằm sát bàn phím, không có khoảng trống');
+    expect(tester.getRect(note).bottom, lessThanOrEqualTo(send.top));
   });
 
   group('bản nháp SOS khi bấm Home', () {

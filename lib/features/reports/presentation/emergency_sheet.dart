@@ -28,7 +28,8 @@ import 'widgets/submit_result_view.dart';
 Future<void> showEmergencySheet(BuildContext context, {EmergencyDraft? restore}) async {
   unawaited(HapticFeedback.heavyImpact());
   if (!context.mounted) return;
-  await Navigator.of(context).push(MaterialPageRoute<void>(
+  // Navigator gốc: phủ cả thanh điều hướng dưới, không lồng trong khung của các tab.
+  await Navigator.of(context, rootNavigator: true).push(MaterialPageRoute<void>(
     fullscreenDialog: true,
     builder: (_) => EmergencySheet(restore: restore),
   ));
@@ -175,7 +176,9 @@ class _EmergencySheetState extends ConsumerState<EmergencySheet> {
     final palette = context.palette;
     final buildings = ref.watch(campusInfoProvider).value?.buildings ?? const <String>[];
     final result = _result;
-    final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
+    // Đọc từ hệ thống (KeyboardInsetFix có thể đã đưa viewInsets về 0 khi máy tự co cửa sổ).
+    // MediaQuery.of để vẽ lại khi bàn phím mở/đóng hoặc cửa sổ đổi cỡ.
+    final keyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0 || View.of(context).viewInsets.bottom > 0;
 
     // Nội dung cuộn ở trên, nút hành động ghim ở chân màn để luôn thấy "Gửi cảnh báo ngay"
     // mà không cần cuộn, kể cả khi bàn phím đang mở, máy màn nhỏ hoặc cỡ chữ lớn.
@@ -266,7 +269,7 @@ class _EmergencySheetState extends ConsumerState<EmergencySheet> {
             maxLines: 3,
             minLines: 1,
             maxLength: ReportLimits.maxEmergencyNoteLength,
-            decoration: const InputDecoration(labelText: 'Ghi chú ngắn'),
+            decoration: const InputDecoration(labelText: 'Ghi chú ngắn', counterText: ''),
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,

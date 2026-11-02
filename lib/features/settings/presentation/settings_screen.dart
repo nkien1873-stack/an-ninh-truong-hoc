@@ -235,7 +235,7 @@ class _EditProfileSheetState extends ConsumerState<_EditProfileSheet> {
               controller: _name,
               textCapitalization: TextCapitalization.words,
               maxLength: ProfileLimits.maxNameLength,
-              decoration: const InputDecoration(labelText: 'Họ và tên'),
+              decoration: const InputDecoration(labelText: 'Họ và tên', counterText: ''),
               validator: ProfileLimits.validateDisplayName,
             ),
             const SizedBox(height: 8),
@@ -250,14 +250,6 @@ class _EditProfileSheetState extends ConsumerState<_EditProfileSheet> {
               ),
               validator: validateOptionalPhone,
             ),
-            if (widget.user.role == UserRole.reporter) ...[
-              const SizedBox(height: 12),
-              InfoNote(
-                'Bạn là: ${widget.user.memberType.label}. Đối tượng do quản trị xác nhận; '
-                'cần đổi (ví dụ sang Giảng viên) thì liên hệ quản trị.',
-                icon: Icons.badge_outlined,
-              ),
-            ],
             if (_error != null) ...[const SizedBox(height: 12), InlineError(_error!)],
             const SizedBox(height: 16),
             FilledButton(onPressed: _saving ? null : _save, child: Text(_saving ? 'Đang lưu…' : 'Lưu')),

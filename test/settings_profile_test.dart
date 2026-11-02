@@ -58,6 +58,7 @@ void main() {
     expect(find.text('khoa@gmail.com'), findsOneWidget);
     expect(find.widgetWithText(TextFormField, 'Họ và tên'), findsOneWidget);
     expect(find.byType(ChoiceChip), findsNothing);
-    expect(find.textContaining('do quản trị xác nhận'), findsOneWidget);
+    expect(find.textContaining('do quản trị xác nhận'), findsNothing, reason: 'đã bỏ chú thích');
+    expect(find.text('Người báo, Sinh viên'), findsOneWidget);
   });
 }

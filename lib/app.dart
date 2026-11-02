@@ -11,6 +11,7 @@ import 'core/router/app_router.dart';
 import 'core/router/role_navigation.dart';
 import 'core/settings/theme_mode_controller.dart';
 import 'core/theme/app_theme.dart';
+import 'core/widgets/keyboard_inset_fix.dart';
 import 'features/auth/application/session.dart';
 
 class CampusSafetyApp extends ConsumerStatefulWidget {
@@ -77,6 +78,7 @@ class _CampusSafetyAppState extends ConsumerState<CampusSafetyApp> with WidgetsB
       supportedLocales: const [Locale('vi'), Locale('en')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       routerConfig: ref.watch(appRouterProvider),
+      builder: (context, child) => KeyboardInsetFix(child: child!),
     );
   }
 }
