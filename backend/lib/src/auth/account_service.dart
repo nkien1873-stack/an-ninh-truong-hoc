@@ -357,6 +357,22 @@ class AccountService {
     };
   }
 
+  /// Quản trị đặt số lần đăng nhập sai của [uid]: đủ [LoginPolicy.maxFailures] thì tạm khoá như
+  /// khi tự nhập sai, ít hơn thì mở khoá ngay (0 là mở khoá hẳn).
+  Future<void> setFailedLogins(String uid, int count) async {
+    if (count < 0 || count > LoginPolicy.maxFailures) {
+      throw ApiException.validation({'failedLogins': 'Số lần cảnh báo từ 0 đến ${LoginPolicy.maxFailures}.'});
+    }
+    if (await _credentials.byUid(uid) == null) {
+      throw ApiException.validation({'failedLogins': 'Tài khoản chưa kích hoạt nên chưa có lần đăng nhập nào.'});
+    }
+    if (count >= LoginPolicy.maxFailures) {
+      await _credentials.recordFailure(uid, attempts: 0, lockedUntil: _clock().toUtc().add(LoginPolicy.lockDuration));
+    } else {
+      await _credentials.recordFailure(uid, attempts: count);
+    }
+  }
+
   Future<SignInResult> login(String identifier, String password, {required String ip}) async {
     final ipWait = _ipLogin.hit(ip);
     if (ipWait != null) {

@@ -361,7 +361,7 @@ void main() {
                 memberType: MemberType.student,
                 active: true,
                 onDuty: false,
-                fakeReports: 2,
+                loginLockedUntil: DateTime(2026, 11, 2, 23, 15),
               ),
             ),
           ),

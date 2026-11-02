@@ -173,7 +173,16 @@ class _UserFormSheetState extends ConsumerState<UserFormSheet> {
   late bool _active = widget.existing?.active ?? true;
   late bool _onDuty = widget.existing?.onDuty ?? false;
   late MemberType _memberType = widget.existing?.memberType ?? MemberType.staff;
-  late int _fakeReports = widget.existing?.fakeReports ?? 0;
+  // Số lần cảnh báo = số lần đăng nhập sai liên tiếp; đang tạm khoá thì coi như đủ 5.
+  late int _failedLogins = _initialFailedLogins;
+  late bool _loginLocked = widget.existing?.loginLockedUntil != null;
+  bool _unlocking = false;
+
+  int get _initialFailedLogins {
+    final e = widget.existing;
+    if (e == null) return 0;
+    return e.loginLockedUntil != null ? LoginPolicy.maxFailures : e.failedLogins;
+  }
   final _formKey = GlobalKey<FormState>();
   String? _error;
   bool _saving = false;
@@ -214,7 +223,7 @@ class _UserFormSheetState extends ConsumerState<UserFormSheet> {
           active: _active != e.active ? _active : null,
           onDuty: _onDuty != e.onDuty ? (_role.isStaff && _onDuty) : null,
           memberType: _memberType != e.memberType ? _memberType : null,
-          fakeReports: _fakeReports != e.fakeReports ? _fakeReports : null,
+          failedLogins: _failedLogins != _initialFailedLogins ? _failedLogins : null,
         );
       }
       if (mounted) Navigator.pop(context);
@@ -222,6 +231,27 @@ class _UserFormSheetState extends ConsumerState<UserFormSheet> {
       setState(() => _error = e.fieldErrors.values.firstOrNull ?? e.message);
     } finally {
       if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  /// Mở khoá đăng nhập ngay (tài khoản bị tạm khoá vì nhập sai mật khẩu 5 lần).
+  Future<void> _unlockLogin() async {
+    setState(() {
+      _unlocking = true;
+      _error = null;
+    });
+    try {
+      await ref.read(adminRepositoryProvider).updateUser(widget.existing!.uid, failedLogins: 0);
+      if (!mounted) return;
+      setState(() {
+        _loginLocked = false;
+        _failedLogins = 0;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đã mở khoá đăng nhập.')));
+    } on ApiError catch (e) {
+      setState(() => _error = e.fieldErrors.values.firstOrNull ?? e.message);
+    } finally {
+      if (mounted) setState(() => _unlocking = false);
     }
   }
 
@@ -329,27 +359,35 @@ class _UserFormSheetState extends ConsumerState<UserFormSheet> {
                   title: const Text('Đang trực'),
                   subtitle: const Text('Nhận cảnh báo khi có sự cố mới.'),
                 ),
-              if (!_isNew) _FailedLogins(user: widget.existing!),
-              // Chỉ người báo bị đếm cảnh báo báo sai; bảo vệ và quản trị không có mục này.
+              // Chỉ người báo có mục "Số lần cảnh báo"; bảo vệ, quản trị bị tạm khoá thì vẫn mở khoá được.
               if (!_isNew && !widget.isSelf && _role == UserRole.reporter) ...[
                 const SizedBox(height: 8),
-                _FakeReportStepper(
-                  value: _fakeReports,
-                  willLock: _role == UserRole.reporter && _active && _fakeReports >= FakeReportPolicy.lockThreshold,
-                  onChanged: (v) => setState(() => _fakeReports = v),
+                _WarningStepper(
+                  value: _failedLogins,
+                  // Đang tạm khoá sẵn thì khung đỏ bên dưới đã nói, không lặp lại.
+                  showLockNote: !_loginLocked,
+                  onChanged: (v) => setState(() => _failedLogins = v),
+                ),
+              ],
+              if (!_isNew && !widget.isSelf && _loginLocked) ...[
+                const SizedBox(height: 8),
+                InlineError(
+                  'Đang tạm khoá đăng nhập tới ${formatTime(widget.existing!.loginLockedUntil!)} '
+                  'vì nhập sai mật khẩu ${LoginPolicy.maxFailures} lần.',
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  key: const Key('unlock-login'),
+                  onPressed: _unlocking || _saving ? null : _unlockLogin,
+                  icon: const Icon(Icons.lock_open_rounded),
+                  label: Text(_unlocking ? 'Đang mở khoá…' : 'Mở khoá đăng nhập'),
                 ),
               ],
               if (!_isNew)
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   value: _active,
-                  // Mở khoá thì đếm lại số lần báo sai từ 0 (backend cũng làm vậy).
-                  onChanged: widget.isSelf
-                      ? null
-                      : (v) => setState(() {
-                            _active = v;
-                            if (v && !widget.existing!.active) _fakeReports = 0;
-                          }),
+                  onChanged: widget.isSelf ? null : (v) => setState(() => _active = v),
                   title: const Text('Cho phép đăng nhập'),
                   subtitle: Text(widget.isSelf
                       ? 'Bạn không thể tự khoá tài khoản của mình.'
@@ -379,53 +417,29 @@ class _UserFormSheetState extends ConsumerState<UserFormSheet> {
   }
 }
 
-/// Số lần nhập sai mật khẩu liên tiếp; đủ [LoginPolicy.maxFailures] lần thì tạm khoá đăng nhập.
-class _FailedLogins extends StatelessWidget {
-  const _FailedLogins({required this.user});
-
-  final AppUser user;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    const limit = LoginPolicy.maxFailures;
-    final locked = user.loginLockedUntil;
-    final color = user.failedLogins == 0 ? theme.colorScheme.onSurface : theme.colorScheme.error;
-    return ListTile(
-      key: const Key('failed-logins'),
-      contentPadding: EdgeInsets.zero,
-      title: Text('Đăng nhập sai liên tiếp', style: theme.textTheme.titleSmall),
-      subtitle: locked != null
-          ? Text('Đang tạm khoá đăng nhập tới ${formatTime(locked)}.', style: TextStyle(color: theme.colorScheme.error))
-          : null,
-      trailing: Text('${user.failedLogins}/$limit', style: theme.textTheme.titleLarge?.copyWith(color: color)),
-    );
-  }
-}
-
-/// Số lần báo cáo sai sự thật, quản trị chỉnh bằng nút trừ/cộng (0 đến
-/// [FakeReportPolicy.lockThreshold]). Sinh viên đủ ngưỡng thì tài khoản bị khoá khi lưu.
-class _FakeReportStepper extends StatelessWidget {
-  const _FakeReportStepper({required this.value, required this.willLock, required this.onChanged});
+/// "Số lần cảnh báo": số lần nhập sai mật khẩu liên tiếp, quản trị chỉnh bằng nút trừ/cộng (0 đến
+/// [LoginPolicy.maxFailures]). Lưu ở mức tối đa là tạm khoá đăng nhập; thấp hơn là mở khoá.
+class _WarningStepper extends StatelessWidget {
+  const _WarningStepper({required this.value, required this.showLockNote, required this.onChanged});
 
   final int value;
-  final bool willLock;
+  final bool showLockNote;
   final ValueChanged<int> onChanged;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    const limit = FakeReportPolicy.lockThreshold;
+    const limit = LoginPolicy.maxFailures;
     final color = value == 0 ? theme.colorScheme.onSurface : theme.colorScheme.error;
     return Column(
-      key: const Key('fake-report-count'),
+      key: const Key('warning-count'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
           children: [
             Expanded(child: Text('Số lần cảnh báo', style: theme.textTheme.titleSmall)),
             IconButton.outlined(
-              key: const Key('fake-minus'),
+              key: const Key('warning-minus'),
               tooltip: 'Bớt một lần',
               onPressed: value > 0 ? () => onChanged(value - 1) : null,
               icon: const Icon(Icons.remove_rounded),
@@ -439,18 +453,18 @@ class _FakeReportStepper extends StatelessWidget {
               ),
             ),
             IconButton.outlined(
-              key: const Key('fake-plus'),
+              key: const Key('warning-plus'),
               tooltip: 'Thêm một lần',
               onPressed: value < limit ? () => onChanged(value + 1) : null,
               icon: const Icon(Icons.add_rounded),
             ),
           ],
         ),
-        if (willLock)
+        if (value >= limit && showLockNote)
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Text(
-              'Đủ $limit lần: tài khoản sẽ bị khoá khi lưu.',
+              'Đủ $limit lần: tạm khoá đăng nhập ${LoginPolicy.lockDuration.inMinutes} phút.',
               style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.error),
             ),
           ),

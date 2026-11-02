@@ -276,6 +276,21 @@ void main() {
       expect(locked['loginLockedUntil'], isNotNull);
     });
 
+    test('quản trị đặt số lần sai: đủ 5 là tạm khoá, đưa về 0 là mở khoá đăng nhập được ngay', () async {
+      final uid = credentials.byUidMap.keys.single;
+      await svc.setFailedLogins(uid, LoginPolicy.maxFailures);
+      await expectLater(svc.login('khoa.tran', 'matkhau123', ip: '1'), throwsA(apiError('login_locked')));
+      expect((await svc.loginStatus([uid]))[uid]!['failedLogins'], LoginPolicy.maxFailures);
+
+      await svc.setFailedLogins(uid, 0);
+      expect((await svc.login('khoa.tran', 'matkhau123', ip: '1')).user.username, 'khoa.tran');
+
+      await svc.setFailedLogins(uid, 3);
+      expect((await svc.loginStatus([uid]))[uid]!['failedLogins'], 3);
+      await expectLater(svc.setFailedLogins(uid, 6), throwsA(apiError('validation_failed')));
+      await expectLater(svc.setFailedLogins('chua-kich-hoat', 0), throwsA(apiError('validation_failed')));
+    });
+
     test('tên không tồn tại báo giống sai mật khẩu', () async {
       await expectLater(
         svc.login('khong.co', 'matkhau123', ip: '1'),

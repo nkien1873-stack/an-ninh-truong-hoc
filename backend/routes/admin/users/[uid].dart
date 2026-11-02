@@ -2,7 +2,8 @@ import 'package:campus_core/campus_core.dart';
 import 'package:campus_safety_backend/backend.dart';
 import 'package:dart_frog/dart_frog.dart';
 
-/// PATCH /admin/users/{uid} {role?, active?, onDuty?, displayName?, memberType?, fakeReports?}.
+/// PATCH /admin/users/{uid} {role?, active?, onDuty?, displayName?, memberType?, fakeReports?, failedLogins?}.
+/// `failedLogins` (0 đến 5) đặt số lần đăng nhập sai: đủ 5 là tạm khoá, ít hơn là mở khoá đăng nhập.
 /// `fakeReports` (0 đến ngưỡng) chỉnh số lần báo cáo sai sự thật; đủ ngưỡng thì khoá người báo.
 /// Mở khoá thì đặt lại số lần (mặc định 0).
 /// DELETE /admin/users/{uid} : xoá tài khoản (báo cáo người đó đã gửi vẫn giữ).
@@ -60,6 +61,10 @@ Future<Response> onRequest(RequestContext context, String uid) async {
       (role ?? target.role) == UserRole.reporter &&
       (active ?? target.active);
 
+  // Đặt số lần đăng nhập sai trước (có kiểm tra), để lỗi không làm lưu dở các thay đổi khác.
+  final failedLogins = optionalInt(body, 'failedLogins');
+  if (failedLogins != null) await services.accounts.setFailedLogins(uid, failedLogins);
+
   final updated = await services.users.update(
     uid,
     role: role,
@@ -71,5 +76,8 @@ Future<Response> onRequest(RequestContext context, String uid) async {
     fakeReports: fakeReports,
   );
   if (active == false || lockForFake) await services.authTokens.revokeSessions(uid);
-  return Response.json(body: {'user': updated.toApiJson()});
+  final login = (await services.accounts.loginStatus([uid]))[uid];
+  return Response.json(body: {
+    'user': {...updated.toApiJson(), ...?login},
+  });
 }

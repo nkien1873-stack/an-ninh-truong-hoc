@@ -52,6 +52,7 @@ class AdminRepository {
     String? displayName,
     MemberType? memberType,
     int? fakeReports,
+    int? failedLogins,
   }) async {
     final res = await _api.patch('/admin/users/$uid', {
       if (role != null) 'role': role.wire,
@@ -60,6 +61,7 @@ class AdminRepository {
       'displayName': ?displayName,
       if (memberType != null) 'memberType': memberType.wire,
       'fakeReports': ?fakeReports,
+      'failedLogins': ?failedLogins,
     });
     return AppUser.fromApi(res['user']! as Map<String, Object?>);
   }
