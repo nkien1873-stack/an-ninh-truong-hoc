@@ -115,6 +115,46 @@ void main() {
     expect(find.textContaining('Gọi trực an ninh'), findsOneWidget);
   });
 
+  testWidgets('bàn phím mở khi nhập ghi chú: không tràn màn hình, vẫn thấy ô ghi chú và nút gửi', (tester) async {
+    // Cỡ máy thật trong ảnh lỗi (900x2000 px). Trên máy đó phần trống dưới sheet còn lớn hơn
+    // bàn phím, nên thử với khoảng trống rất ít: chỉ khoảng 1/4 màn hình cho sheet.
+    tester.view.physicalSize = const Size(900, 2000);
+    tester.view.devicePixelRatio = 2.5;
+    tester.view.padding = const FakeViewPadding(top: 100, bottom: 60);
+    tester.view.viewInsets = const FakeViewPadding(bottom: 1450);
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        signedInUserProvider.overrideWithValue(_student),
+        campusInfoProvider.overrideWith(
+          (ref) async => const CampusInfo(campusName: 'Trường thử nghiệm', hotline: '0932189062', buildings: ['Toà A1']),
+        ),
+        reportRepositoryProvider.overrideWithValue(FakeReportRepository()),
+        imageServiceProvider.overrideWithValue(FakeImageService()),
+        locationServiceProvider.overrideWithValue(ControlledLocation()),
+      ],
+      child: MaterialApp(
+        theme: AppTheme.light(),
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        supportedLocales: const [Locale('vi')],
+        locale: const Locale('vi'),
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(onPressed: () => showEmergencySheet(context), child: const Text('SOS')),
+          ),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('SOS'));
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(tester.takeException(), isNull);
+    await tester.ensureVisible(find.widgetWithText(TextField, 'Ghi chú ngắn'));
+    await tester.ensureVisible(find.byKey(const Key('send-emergency')));
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+  });
+
   group('ReportTimeline', () {
     final events = [
       ReportEventItem(

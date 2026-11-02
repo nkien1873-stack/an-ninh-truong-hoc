@@ -294,6 +294,7 @@ class _EmergencySheetState extends ConsumerState<EmergencySheet> {
     }
 
     final duration = MediaQuery.disableAnimationsOf(context) ? Duration.zero : const Duration(milliseconds: 200);
+    final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
       child: ConstrainedBox(
@@ -305,10 +306,21 @@ class _EmergencySheetState extends ConsumerState<EmergencySheet> {
             Flexible(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                child: AnimatedSwitcher(duration: duration, child: body),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    AnimatedSwitcher(duration: duration, child: body),
+                    // Bàn phím mở thì không đủ chỗ ghim chân sheet (ô ghi chú bị che, tràn
+                    // màn hình): đưa nút vào phần cuộn ngay dưới ô đang nhập.
+                    if (keyboardOpen) ...[
+                      const SizedBox(height: 12),
+                      AnimatedSwitcher(duration: duration, child: footer),
+                    ],
+                  ],
+                ),
               ),
             ),
-            Material(
+            if (!keyboardOpen) Material(
               color: theme.bottomSheetTheme.backgroundColor ?? theme.colorScheme.surfaceContainerLow,
               child: SafeArea(
                 top: false,
