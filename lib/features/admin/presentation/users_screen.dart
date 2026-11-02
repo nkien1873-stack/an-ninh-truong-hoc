@@ -20,9 +20,6 @@ class _RoleTab extends Notifier<UserRole> {
 
 final _roleTabProvider = NotifierProvider<_RoleTab, UserRole>(_RoleTab.new);
 
-/// Nhãn vai trò trong màn quản lý: người báo là sinh viên nên gọi luôn là "Sinh viên".
-String roleLabel(UserRole r) => r == UserRole.reporter ? 'Sinh viên' : r.label;
-
 /// Quản lý tài khoản: danh sách theo vai trò, tìm kiếm, tạo trước, phân quyền, khoá.
 class UsersScreen extends ConsumerStatefulWidget {
   const UsersScreen({super.key});
@@ -71,7 +68,7 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
                 segments: const [
                   ButtonSegment(value: UserRole.guard, label: Text('Bảo vệ')),
                   ButtonSegment(value: UserRole.admin, label: Text('Quản trị')),
-                  ButtonSegment(value: UserRole.reporter, label: Text('Sinh viên')),
+                  ButtonSegment(value: UserRole.reporter, label: Text('Người báo')),
                 ],
                 selected: {role},
                 onSelectionChanged: (v) => ref.read(_roleTabProvider.notifier).set(v.first),
@@ -105,7 +102,7 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
                 if (filtered.isEmpty) {
                   return EmptyState(
                     icon: Icons.person_search_outlined,
-                    title: list.isEmpty ? 'Chưa có tài khoản ${roleLabel(role).toLowerCase()}' : 'Không tìm thấy',
+                    title: list.isEmpty ? 'Chưa có tài khoản ${role.label.toLowerCase()}' : 'Không tìm thấy',
                     message: list.isEmpty ? 'Bấm "Thêm tài khoản" để tạo.' : 'Thử từ khoá khác.',
                   );
                 }
@@ -173,6 +170,7 @@ class _UserFormSheetState extends ConsumerState<UserFormSheet> {
   late UserRole _role = widget.existing?.role ?? widget.initialRole;
   late bool _active = widget.existing?.active ?? true;
   late bool _onDuty = widget.existing?.onDuty ?? false;
+  late MemberType _memberType = widget.existing?.memberType ?? MemberType.staff;
   late int _fakeReports = widget.existing?.fakeReports ?? 0;
   final _formKey = GlobalKey<FormState>();
   String? _error;
@@ -202,7 +200,7 @@ class _UserFormSheetState extends ConsumerState<UserFormSheet> {
           phone: _phone.text,
           displayName: _name.text.trim(),
           role: _role,
-          memberType: _role == UserRole.reporter ? MemberType.student : MemberType.staff,
+          memberType: _memberType,
           onDuty: _role.isStaff && _onDuty,
         );
       } else {
@@ -213,8 +211,7 @@ class _UserFormSheetState extends ConsumerState<UserFormSheet> {
           role: _role != e.role ? _role : null,
           active: _active != e.active ? _active : null,
           onDuty: _onDuty != e.onDuty ? (_role.isStaff && _onDuty) : null,
-          // Đổi vai trò thì đối tượng theo vai trò mới (không còn ô chọn đối tượng riêng).
-          memberType: _role == e.role ? null : (_role == UserRole.reporter ? MemberType.student : MemberType.staff),
+          memberType: _memberType != e.memberType ? _memberType : null,
           fakeReports: _fakeReports != e.fakeReports ? _fakeReports : null,
         );
       }
@@ -308,11 +305,20 @@ class _UserFormSheetState extends ConsumerState<UserFormSheet> {
               SegmentedButton<UserRole>(
                 segments: [
                   for (final r in UserRole.values)
-                    ButtonSegment(value: r, label: Text(roleLabel(r)), enabled: !widget.isSelf || r == UserRole.admin),
+                    ButtonSegment(value: r, label: Text(r.label), enabled: !widget.isSelf || r == UserRole.admin),
                 ],
                 selected: {_role},
                 onSelectionChanged: (v) => setState(() => _role = v.first),
               ),
+              if (_role == UserRole.reporter) ...[
+                const SizedBox(height: 16),
+                DropdownButtonFormField<MemberType>(
+                  initialValue: _memberType,
+                  decoration: const InputDecoration(labelText: 'Đối tượng'),
+                  items: [for (final m in MemberType.values) DropdownMenuItem(value: m, child: Text(m.label))],
+                  onChanged: (v) => setState(() => _memberType = v ?? _memberType),
+                ),
+              ],
               if (_role.isStaff)
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,

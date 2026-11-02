@@ -75,11 +75,10 @@ void main() {
 
   Widget form(AppUser u) => Scaffold(body: SingleChildScrollView(child: UserFormSheet(existing: u)));
 
-  testWidgets('vai trò ghi "Sinh viên", không còn ô Đối tượng', (tester) async {
+  testWidgets('giữ vai trò "Người báo" và ô Đối tượng', (tester) async {
     await pump(tester, form(_user()));
-    expect(find.text('Sinh viên'), findsOneWidget);
-    expect(find.text('Người báo'), findsNothing);
-    expect(find.text('Đối tượng'), findsNothing);
+    expect(find.text('Người báo'), findsOneWidget);
+    expect(find.text('Đối tượng'), findsOneWidget);
   });
 
   testWidgets('chỉnh số lần cảnh báo bằng nút trừ/cộng rồi lưu', (tester) async {
