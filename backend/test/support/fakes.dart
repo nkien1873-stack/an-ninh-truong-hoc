@@ -56,6 +56,10 @@ class MemoryUserRepository implements UserRepository {
       byUid.values.where((u) => u.email == email).firstOrNull;
 
   @override
+  Future<UserRecord?> byStudentId(String studentId) async =>
+      byUid.values.where((u) => u.studentId == studentId).firstOrNull;
+
+  @override
   Future<(UserRecord, bool)> getOrCreate(EmailAddress email, {required UserRole role}) async {
     final existing = await byEmail(email);
     if (existing != null) return (existing, false);
@@ -82,17 +86,24 @@ class MemoryUserRepository implements UserRepository {
     VietnamPhone? phone,
     bool clearPhone = false,
     String? username,
+    String? studentId,
+    int? fakeReports,
     MemberType? memberType,
     UserRole? role,
     bool? active,
     bool? onDuty,
     DateTime? lastLoginAt,
   }) async {
+    if (studentId != null && byUid.values.any((u) => u.uid != uid && u.studentId == studentId)) {
+      throw StateError('student_id_taken');
+    }
     final u = byUid[uid]!.copyWith(
       displayName: displayName,
       phone: phone,
       clearPhone: clearPhone,
       username: username,
+      studentId: studentId,
+      fakeReports: fakeReports,
       memberType: memberType,
       role: role,
       active: active,
@@ -100,6 +111,13 @@ class MemoryUserRepository implements UserRepository {
       lastLoginAt: lastLoginAt,
     );
     return byUid[uid] = u;
+  }
+
+  @override
+  Future<UserRecord?> addFakeReports(String uid, int delta) async {
+    final u = byUid[uid];
+    if (u == null) return null;
+    return byUid[uid] = u.copyWith(fakeReports: u.fakeReports + delta);
   }
 
   @override

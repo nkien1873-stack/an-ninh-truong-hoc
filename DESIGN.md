@@ -55,6 +55,7 @@ Trạng thái báo cáo (nền tonal / chữ):
 | Đang xử lý | `#FBEBC8` / `#6E4400` | `#4A3510` / `#F5D9A0` | `pending_actions_rounded` |
 | Đã giải quyết | `#D6EFDF` / `#145530` | `#173D27` / `#B9E5C9` | `task_alt_rounded` |
 | Từ chối | `#ECEAEA` / `#4A4545` | `#343131` / `#DAD5D5` | `block_rounded` |
+| Đã huỷ (người báo tự huỷ) | `#F1EEF4` / `#4F4659` | `#332F38` / `#DCD5E3` | `cancel_outlined` |
 
 Mức độ: Thấp (viền xám), Trung bình (hổ phách tonal), Cao (cam tonal `#FDE3D3`/`#8A3500`,
 dark `#4F2A12`/`#F8C9A8`), **Khẩn cấp (nền đỏ đặc, chữ trắng)**.

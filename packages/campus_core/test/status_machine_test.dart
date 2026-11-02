@@ -74,6 +74,16 @@ void main() {
       expect(ReportStatusMachine.actionLabel(ReportStatus.submitted, ReportStatus.received), 'Tiếp nhận');
       expect(ReportStatusMachine.actionLabel(ReportStatus.resolved, ReportStatus.inProgress), 'Mở lại');
     });
+
+    test('người báo huỷ được trước khi bảo vệ bắt đầu xử lý; đã huỷ là đóng hẳn', () {
+      expect(ReportStatusMachine.canCancel(ReportStatus.submitted), isTrue);
+      expect(ReportStatusMachine.canCancel(ReportStatus.received), isTrue);
+      expect(ReportStatusMachine.canCancel(ReportStatus.inProgress), isFalse);
+      expect(ReportStatusMachine.canCancel(ReportStatus.cancelled), isFalse);
+      expect(ReportStatus.cancelled.isClosed, isTrue);
+      expect(ReportStatusMachine.nextStatuses(ReportStatus.cancelled, UserRole.admin), isEmpty);
+      expect(ReportStatus.fromWire('cancelled'), ReportStatus.cancelled);
+    });
   });
 
   test('wire của trạng thái khớp Firestore', () {

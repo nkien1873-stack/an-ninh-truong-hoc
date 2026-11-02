@@ -48,6 +48,7 @@ class StatusPalette extends ThemeExtension<StatusPalette> {
       ReportStatus.inProgress: Color(0xFFFBEBC8),
       ReportStatus.resolved: Color(0xFFD6EFDF),
       ReportStatus.rejected: Color(0xFFECEAEA),
+      ReportStatus.cancelled: Color(0xFFF1EEF4),
     },
     statusForeground: {
       ReportStatus.submitted: Color(0xFF353E4D),
@@ -55,6 +56,7 @@ class StatusPalette extends ThemeExtension<StatusPalette> {
       ReportStatus.inProgress: Color(0xFF6E4400),
       ReportStatus.resolved: Color(0xFF145530),
       ReportStatus.rejected: Color(0xFF4A4545),
+      ReportStatus.cancelled: Color(0xFF4F4659),
     },
     severityBackground: {
       Severity.low: Color(0xFFE6E9EF),
@@ -83,6 +85,7 @@ class StatusPalette extends ThemeExtension<StatusPalette> {
       ReportStatus.inProgress: Color(0xFF4A3510),
       ReportStatus.resolved: Color(0xFF173D27),
       ReportStatus.rejected: Color(0xFF343131),
+      ReportStatus.cancelled: Color(0xFF332F38),
     },
     statusForeground: {
       ReportStatus.submitted: Color(0xFFD3DAE6),
@@ -90,6 +93,7 @@ class StatusPalette extends ThemeExtension<StatusPalette> {
       ReportStatus.inProgress: Color(0xFFF5D9A0),
       ReportStatus.resolved: Color(0xFFB9E5C9),
       ReportStatus.rejected: Color(0xFFDAD5D5),
+      ReportStatus.cancelled: Color(0xFFDCD5E3),
     },
     severityBackground: {
       Severity.low: Color(0xFF2A313C),

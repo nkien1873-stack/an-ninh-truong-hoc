@@ -19,4 +19,13 @@ void main() {
     expect(PasswordPolicy.validate('12345678'), contains('chữ và số'));
     expect(PasswordPolicy.validate('a1' * 40), contains('tối đa'));
   });
+
+  test('MSSV: bỏ khoảng trắng, chỉ chữ số, 6 đến 12 số', () {
+    expect(StudentIdPolicy.normalize(' 2280 600123 '), '2280600123');
+    expect(StudentIdPolicy.validate('2280600123'), isNull);
+    expect(StudentIdPolicy.validate(''), contains('Nhập mã số sinh viên'));
+    expect(StudentIdPolicy.validate('22806a'), contains('chữ số'));
+    expect(StudentIdPolicy.validate('12345'), contains('6 đến 12'));
+    expect(StudentIdPolicy.validate('1' * 13), contains('6 đến 12'));
+  });
 }

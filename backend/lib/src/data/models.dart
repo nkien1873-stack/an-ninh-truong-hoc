@@ -12,6 +12,8 @@ class UserRecord {
     required this.onDuty,
     this.phone,
     this.username,
+    this.studentId,
+    this.fakeReports = 0,
     this.fcmTokens = const [],
     this.createdAt,
     this.updatedAt,
@@ -28,6 +30,12 @@ class UserRecord {
 
   /// Tên đăng nhập (đã chuẩn hoá). `null` với tài khoản quản trị tạo trước mà chưa đăng ký.
   final String? username;
+
+  /// Mã số sinh viên (chỉ sinh viên), mỗi MSSV một tài khoản.
+  final String? studentId;
+
+  /// Số báo cáo bị đánh dấu sai sự thật ([FakeReportPolicy]).
+  final int fakeReports;
   final String displayName;
   final UserRole role;
   final MemberType memberType;
@@ -52,6 +60,8 @@ class UserRecord {
     VietnamPhone? phone,
     bool clearPhone = false,
     String? username,
+    String? studentId,
+    int? fakeReports,
     UserRole? role,
     MemberType? memberType,
     bool? active,
@@ -65,6 +75,8 @@ class UserRecord {
         email: email,
         phone: clearPhone ? null : (phone ?? this.phone),
         username: username ?? this.username,
+        studentId: studentId ?? this.studentId,
+        fakeReports: fakeReports ?? this.fakeReports,
         displayName: displayName ?? this.displayName,
         role: role ?? this.role,
         memberType: memberType ?? this.memberType,
@@ -80,6 +92,8 @@ class UserRecord {
         'uid': uid,
         'email': email.value,
         'username': username,
+        'studentId': studentId,
+        'fakeReports': fakeReports,
         'phone': phone?.local,
         'displayName': displayName,
         'role': role.wire,
@@ -120,6 +134,7 @@ class ReportRecord {
     this.assigneeName,
     this.lastNote,
     this.closedAt,
+    this.fake = false,
   });
 
   final String id;
@@ -149,6 +164,9 @@ class ReportRecord {
   final String? lastNote;
   final DateTime? closedAt;
 
+  /// Bị bảo vệ/quản trị đánh dấu là báo cáo sai sự thật khi từ chối.
+  final bool fake;
+
   String get locationText => formatLocation(building: building, floor: floor, room: room);
 
   ReportRecord copyWith({
@@ -158,6 +176,7 @@ class ReportRecord {
     String? assigneeName,
     String? lastNote,
     DateTime? closedAt,
+    bool? fake,
     bool clearClosedAt = false,
     bool clearLastNote = false,
   }) =>
@@ -188,6 +207,7 @@ class ReportRecord {
         assigneeName: assigneeName ?? this.assigneeName,
         lastNote: clearLastNote ? null : (lastNote ?? this.lastNote),
         closedAt: clearClosedAt ? null : (closedAt ?? this.closedAt),
+        fake: fake ?? this.fake,
       );
 
   Map<String, Object?> toApiJson() => {
@@ -197,6 +217,7 @@ class ReportRecord {
         'severity': severity.wire,
         'type': type.wire,
         'emergency': emergency,
+        'fake': fake,
         'createdAt': createdAt.toUtc().toIso8601String(),
       };
 
@@ -238,6 +259,17 @@ class ReporterPrivate {
   final VietnamPhone? phone;
 
   Map<String, Object?> toApiJson() => {'uid': uid, 'phoneLocal': phone?.local, 'displayName': displayName};
+}
+
+/// Người đang xử lý báo cáo, để người báo gọi hoặc nhắn khi bảo vệ đã nhận (như tài xế đã nhận chuyến).
+class AssigneeContact {
+  const AssigneeContact({required this.uid, required this.displayName, this.phone});
+
+  final String uid;
+  final String displayName;
+  final VietnamPhone? phone;
+
+  Map<String, Object?> toApiJson() => {'uid': uid, 'displayName': displayName, 'phoneLocal': phone?.local};
 }
 
 /// Một dòng lịch sử của báo cáo.

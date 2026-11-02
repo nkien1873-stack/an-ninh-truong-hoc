@@ -7,6 +7,7 @@ import 'package:campus_safety/core/theme/app_theme.dart';
 import 'package:campus_safety/features/auth/application/session.dart';
 import 'package:campus_safety/features/auth/domain/app_user.dart';
 import 'package:campus_safety/features/campus/campus_info.dart';
+import 'package:campus_safety/features/reports/application/emergency_draft.dart';
 import 'package:campus_safety/features/reports/application/report_providers.dart';
 import 'package:campus_safety/features/reports/domain/report.dart';
 import 'package:campus_safety/features/reports/presentation/emergency_sheet.dart';
@@ -14,6 +15,7 @@ import 'package:campus_safety/features/reports/presentation/widgets/report_timel
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'new_report_screen_test.dart' show FakeImageService, FakeReportRepository;
 
@@ -153,6 +155,78 @@ void main() {
     await tester.ensureVisible(find.byKey(const Key('send-emergency')));
     await tester.pump();
     expect(tester.takeException(), isNull);
+  });
+
+  group('bản nháp SOS khi bấm Home', () {
+    setUp(() => SharedPreferences.setMockInitialValues({}));
+
+    test('lưu, đọc lại; quá 15 phút thì bỏ', () async {
+      final store = EmergencyDraftStore();
+      final at = DateTime(2026, 11, 2, 19, 58);
+      await store.save(EmergencyDraft(type: IncidentType.fire, building: 'Toà A1', note: 'Khói ở tầng 3', anonymous: true, savedAt: at));
+      final back = (await store.load(now: at.add(const Duration(minutes: 5))))!;
+      expect((back.type, back.building, back.note, back.anonymous), (IncidentType.fire, 'Toà A1', 'Khói ở tầng 3', true));
+      expect(await store.load(now: at.add(const Duration(minutes: 16))), isNull);
+      expect(await store.load(now: at), isNull, reason: 'bản nháp quá hạn đã bị xoá');
+    });
+
+    testWidgets('mở lại từ bản nháp giữ nguyên lựa chọn; người dùng tự đóng thì xoá bản nháp', (tester) async {
+      final store = EmergencyDraftStore();
+      tester.view.physicalSize = const Size(1200, 2600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(ProviderScope(
+        overrides: [
+          signedInUserProvider.overrideWithValue(_student),
+          campusInfoProvider.overrideWith(
+            (ref) async => const CampusInfo(campusName: 'Trường thử nghiệm', hotline: '0243 868 1234', buildings: ['Toà A1']),
+          ),
+          reportRepositoryProvider.overrideWithValue(FakeReportRepository()),
+          imageServiceProvider.overrideWithValue(FakeImageService()),
+          locationServiceProvider.overrideWithValue(ControlledLocation()),
+          emergencyDraftStoreProvider.overrideWithValue(store),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.light(),
+          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          supportedLocales: const [Locale('vi')],
+          locale: const Locale('vi'),
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => showEmergencySheet(
+                  context,
+                  restore: EmergencyDraft(
+                    type: IncidentType.fight,
+                    building: 'Toà A1',
+                    note: 'Hai nhóm đánh nhau',
+                    anonymous: true,
+                    savedAt: DateTime.now(),
+                  ),
+                ),
+                child: const Text('SOS'),
+              ),
+            ),
+          ),
+        ),
+      ));
+      await tester.tap(find.text('SOS'));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(find.text('Hai nhóm đánh nhau'), findsOneWidget);
+      expect(tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, IncidentType.fight.label)).selected, isTrue);
+      expect(tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value, isTrue);
+
+      await tester.tap(find.widgetWithText(ChoiceChip, IncidentType.fire.label));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect((await store.load())!.type, IncidentType.fire);
+
+      // Người dùng bấm Back để đóng sheet.
+      await tester.binding.handlePopRoute();
+      await tester.pump(const Duration(seconds: 1));
+      expect(await store.load(), isNull);
+    });
   });
 
   group('ReportTimeline', () {

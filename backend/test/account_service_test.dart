@@ -46,6 +46,7 @@ void main() {
     String password = 'matkhau123',
     String mail = email,
     String memberType = 'student',
+    String studentId = '2280600123',
   }) =>
       RegistrationInput(
         email: mail,
@@ -53,9 +54,47 @@ void main() {
         password: password,
         displayName: 'Trần Minh Khoa',
         memberType: memberType,
+        studentId: studentId,
       );
 
   group('Đăng ký', () {
+    test('sinh viên bắt buộc MSSV hợp lệ, mỗi MSSV một tài khoản; giảng viên không cần', () async {
+      final svc = service();
+      for (final bad in ['', '12ab', '123']) {
+        await expectLater(
+          svc.requestRegistration(input(studentId: bad), ip: 's$bad'),
+          throwsA(isA<ApiException>().having((e) => (e.details!['fields']! as Map).keys, 'fields', contains('studentId'))),
+          reason: bad,
+        );
+      }
+      await svc.requestRegistration(input(studentId: ' 2280 600123 '), ip: '1');
+      final res = await svc.verifyRegistration(email, lastCode(), ip: '1');
+      expect(res.user.studentId, '2280600123');
+
+      await expectLater(
+        svc.requestRegistration(input(mail: 'khac@gmail.com', username: 'nguoi.khac'), ip: '2'),
+        throwsA(isA<ApiException>().having((e) => (e.details!['fields']! as Map)['studentId'], 'studentId', contains('đã có tài khoản'))),
+      );
+      await svc.requestRegistration(input(mail: 'gv@gmail.com', username: 'giang.vien', memberType: 'lecturer', studentId: ''), ip: '3');
+      final gv = await svc.verifyRegistration('gv@gmail.com', lastCode(), ip: '3');
+      expect(gv.user.studentId, isNull);
+    });
+
+    test('hai người chờ mã với cùng MSSV: người nhập mã sau bị từ chối, không tạo tài khoản', () async {
+      final svc = service();
+      await svc.requestRegistration(input(), ip: '1');
+      final first = lastCode();
+      await svc.requestRegistration(input(mail: 'khac@gmail.com', username: 'nguoi.khac'), ip: '2');
+      final second = lastCode();
+      await svc.verifyRegistration(email, first, ip: '1');
+      await expectLater(
+        svc.verifyRegistration('khac@gmail.com', second, ip: '2'),
+        throwsA(isA<ApiException>().having((e) => (e.details!['fields']! as Map).keys, 'fields', contains('studentId'))),
+      );
+      expect(await users.byEmail(EmailAddress.parse('khac@gmail.com')), isNull);
+      expect(await credentials.byUsername('nguoi.khac'), isNull);
+    });
+
     test('gửi OTP trước, chỉ tạo tài khoản khi nhập đúng mã', () async {
       final svc = service();
       final res = await svc.requestRegistration(input(username: '  Khoa.Tran '), ip: '1');
@@ -333,7 +372,7 @@ void main() {
 
     setUp(() async {
       svc = service(admins: {'admin@truong.edu.vn'});
-      await svc.requestRegistration(input(mail: 'admin@truong.edu.vn', username: 'quantri'), ip: 'a');
+      await svc.requestRegistration(input(mail: 'admin@truong.edu.vn', username: 'quantri', memberType: 'lecturer'), ip: 'a');
       admin = (await svc.verifyRegistration('admin@truong.edu.vn', lastCode(), ip: 'a')).user;
       await svc.requestRegistration(input(), ip: 'b');
       await svc.verifyRegistration(email, lastCode(), ip: 'b');

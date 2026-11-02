@@ -10,6 +10,7 @@ class RegistrationDraft {
     required this.password,
     required this.displayName,
     this.memberType = MemberType.student,
+    this.studentId = '',
   });
 
   final String email;
@@ -17,8 +18,11 @@ class RegistrationDraft {
   final String password;
   final String displayName;
 
-  /// Mặc định Sinh viên; quản trị đổi sang Giảng viên trong màn Tài khoản.
+  /// Tài khoản tự đăng ký là Sinh viên; quản trị đổi sang Giảng viên trong màn Tài khoản.
   final MemberType memberType;
+
+  /// Mã số sinh viên, bắt buộc với Sinh viên; mỗi MSSV một tài khoản.
+  final String studentId;
 }
 
 /// Kết quả gửi mã xác nhận đăng ký.

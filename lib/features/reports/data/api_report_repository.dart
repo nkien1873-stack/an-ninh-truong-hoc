@@ -40,10 +40,18 @@ class ApiReportRepository implements ReportRepository {
       SubmitReportResult.fromJson(await _api.post('/reports', draft.toJson()));
 
   @override
-  Future<void> changeStatus(String id, ReportStatus to, {String? note}) async {
+  Future<void> changeStatus(String id, ReportStatus to, {String? note, bool fake = false}) async {
     await _api.post('/reports/$id/status', {
       'status': to.wire,
       if (note != null && note.trim().isNotEmpty) 'note': note.trim(),
+      if (fake) 'fake': true,
+    });
+  }
+
+  @override
+  Future<void> cancel(String id, {String? reason}) async {
+    await _api.post('/reports/$id/cancel', {
+      if (reason != null && reason.trim().isNotEmpty) 'reason': reason.trim(),
     });
   }
 

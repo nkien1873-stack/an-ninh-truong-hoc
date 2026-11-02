@@ -103,7 +103,12 @@ class AppServices {
       users: users,
     );
 
-    final reportService = ReportService(reports: reports, users: users, notifications: notifications);
+    final reportService = ReportService(
+      reports: reports,
+      users: users,
+      notifications: notifications,
+      revokeSessions: authTokens.revokeSessions,
+    );
     return AppServices(
       config: config,
       users: users,

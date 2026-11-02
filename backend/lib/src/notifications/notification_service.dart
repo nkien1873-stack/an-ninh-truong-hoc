@@ -64,6 +64,22 @@ class NotificationService {
     ).timeout(waitLimit, onTimeout: () => 0);
   }
 
+  /// Người báo huỷ: báo người đang xử lý, hoặc những ai đã nhận cảnh báo lúc tạo nếu chưa ai nhận.
+  Future<void> reportCancelled(ReportRecord report, {required String reporterUid}) async {
+    final staff = await _safe(_users.listStaff, const <UserRecord>[], 'đọc danh sách bảo vệ');
+    final targets = report.assigneeUid != null
+        ? staff.where((u) => u.uid == report.assigneeUid)
+        : staff.where((u) => report.emergency || u.onDuty || u.role == UserRole.admin);
+    await _pushToUsers(
+      targets.where((u) => u.uid != reporterUid).toList(),
+      PushMessage(
+        title: 'Đã huỷ: ${report.code}',
+        body: 'Người báo đã huỷ báo cáo ${report.type.label}, ${report.locationText}.',
+        data: {'type': 'report', 'reportId': report.id},
+      ),
+    ).timeout(waitLimit, onTimeout: () => 0);
+  }
+
   Future<void> assigned(ReportRecord report, UserRecord assignee) => _pushToUsers(
     [assignee],
     PushMessage(

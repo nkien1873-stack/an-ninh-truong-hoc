@@ -7,6 +7,8 @@ class AppUser {
     required this.email,
     required this.phone,
     this.username = '',
+    this.studentId = '',
+    this.fakeReports = 0,
     required this.displayName,
     required this.role,
     required this.memberType,
@@ -19,6 +21,8 @@ class AppUser {
         uid: j['uid']! as String,
         email: (j['email'] as String?) ?? '',
         username: (j['username'] as String?) ?? '',
+        studentId: (j['studentId'] as String?) ?? '',
+        fakeReports: (j['fakeReports'] as num?)?.toInt() ?? 0,
         phone: (j['phone'] as String?) ?? '',
         displayName: (j['displayName'] as String?) ?? '',
         role: UserRole.fromWire(j['role'] as String?),
@@ -34,6 +38,12 @@ class AppUser {
 
   /// Tên đăng nhập, rỗng với tài khoản quản trị tạo trước mà chưa đăng ký.
   final String username;
+
+  /// Mã số sinh viên, rỗng nếu không phải sinh viên hoặc tài khoản tạo trước khi có MSSV.
+  final String studentId;
+
+  /// Số báo cáo bị đánh dấu sai sự thật.
+  final int fakeReports;
 
   /// Số liên hệ dạng `0xxxxxxxxx`, rỗng nếu chưa nhập.
   final String phone;

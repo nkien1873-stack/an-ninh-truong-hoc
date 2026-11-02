@@ -2,7 +2,8 @@ import 'package:campus_core/campus_core.dart';
 import 'package:campus_safety_backend/backend.dart';
 import 'package:dart_frog/dart_frog.dart';
 
-/// PATCH /admin/users/{uid} {role?, active?, onDuty?, displayName?, memberType?}
+/// PATCH /admin/users/{uid} {role?, active?, onDuty?, displayName?, memberType?}. Mở khoá thì đặt
+/// lại số lần báo cáo sai sự thật.
 /// DELETE /admin/users/{uid} : xoá tài khoản (báo cáo người đó đã gửi vẫn giữ).
 Future<Response> onRequest(RequestContext context, String uid) async {
   ensureMethod(context, {HttpMethod.patch, HttpMethod.delete});
@@ -52,6 +53,8 @@ Future<Response> onRequest(RequestContext context, String uid) async {
     onDuty: (role != null && !role.isStaff) ? false : onDuty,
     displayName: name,
     memberType: memberType,
+    // Mở khoá thì đếm lại số lần báo sai, nếu không lần báo sai kế tiếp sẽ khoá ngay.
+    fakeReports: (active ?? false) && !target.active ? 0 : null,
   );
   if (active == false) await services.authTokens.revokeSessions(uid);
   return Response.json(body: {'user': updated.toApiJson()});

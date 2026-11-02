@@ -70,6 +70,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               title: Text(user.nameOrEmail),
               subtitle: Text([
                 if (user.username.isNotEmpty) 'Tên đăng nhập: ${user.username}',
+                if (user.studentId.isNotEmpty) 'MSSV: ${user.studentId}',
                 user.email,
                 if (user.hasPhone) user.phoneDisplay,
                 user.role.label,

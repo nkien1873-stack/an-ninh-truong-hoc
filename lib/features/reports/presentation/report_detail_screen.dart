@@ -80,16 +80,34 @@ class _ReportDetailViewState extends ConsumerState<_ReportDetailView> {
   }
 
   Future<void> _changeStatus(ReportStatus to) async {
-    final note = await showModalBottomSheet<String>(
+    final result = await showModalBottomSheet<({String note, bool fake})>(
       context: context,
       isScrollControlled: true,
       builder: (_) => _StatusNoteSheet(from: r.status, to: to, role: user.role),
     );
-    if (note == null) return;
+    if (result == null) return;
     setState(() => _busy = true);
     try {
-      await ref.read(reportRepositoryProvider).changeStatus(r.id, to, note: note);
-      _toast('Đã chuyển sang "${to.label}".');
+      await ref.read(reportRepositoryProvider).changeStatus(r.id, to, note: result.note, fake: result.fake);
+      _toast(result.fake ? 'Đã từ chối và đánh dấu báo cáo sai sự thật.' : 'Đã chuyển sang "${to.label}".');
+    } on ApiError catch (e) {
+      _toast(e.message);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _cancel() async {
+    final reason = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _CancelSheet(report: r),
+    );
+    if (reason == null) return;
+    setState(() => _busy = true);
+    try {
+      await ref.read(reportRepositoryProvider).cancel(r.id, reason: reason);
+      _toast('Đã huỷ báo cáo ${r.code}.');
     } on ApiError catch (e) {
       _toast(e.message);
     } finally {
@@ -144,12 +162,32 @@ class _ReportDetailViewState extends ConsumerState<_ReportDetailView> {
         (events.value?.any((e) => e.type == ReportEventType.created && e.actorUid == user.uid) ?? false);
     final canAct = Permissions.canChangeStatus(user.actor, assigneeUid: r.assigneeUid);
     final next = canAct ? ReportStatusMachine.nextStatuses(r.status, user.role).toList() : const <ReportStatus>[];
-    final canComment = Permissions.canComment(user.actor, isOwner: isOwner);
+    // Như gọi xe: người báo chỉ nhắn được khi đã có bảo vệ nhận báo cáo (backend cũng chặn).
+    final ownerOnly = isOwner && !user.role.isStaff;
+    final waitingForGuard = ownerOnly && r.status.isOpen && r.assigneeUid == null;
+    final canComment = Permissions.canComment(user.actor, isOwner: isOwner) && !waitingForGuard;
+    final canCancel = isOwner && ReportStatusMachine.canCancel(r.status);
     final muted = theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant);
 
     return Scaffold(
       appBar: AppBar(
         title: Text(r.code, style: const TextStyle(fontFeatures: [FontFeature.tabularFigures()])),
+        actions: [
+          if (canCancel)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: FilledButton.icon(
+                key: const Key('cancel-report'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: theme.colorScheme.error,
+                  foregroundColor: theme.colorScheme.onError,
+                ),
+                onPressed: _busy ? null : _cancel,
+                icon: const Icon(Icons.close_rounded),
+                label: const Text('Huỷ'),
+              ),
+            ),
+        ],
         bottom: _busy ? const PreferredSize(preferredSize: Size.fromHeight(4), child: LinearProgressIndicator()) : null,
       ),
       body: ListView(
@@ -190,6 +228,17 @@ class _ReportDetailViewState extends ConsumerState<_ReportDetailView> {
               if (!r.emergency) SeverityBadge(r.severity, large: true),
             ],
           ),
+          if (r.fake) ...[
+            const SizedBox(height: 12),
+            InfoNote(
+              'Báo cáo này bị đánh dấu sai sự thật. Báo sai ${FakeReportPolicy.lockThreshold} lần thì tài khoản bị khoá.',
+              icon: Icons.report_gmailerrorred_rounded,
+            ),
+          ],
+          if (ownerOnly && r.status.isOpen) ...[
+            const SizedBox(height: 12),
+            _GuardContactCard(report: r),
+          ],
           const SizedBox(height: 16),
           _InfoRow(icon: Icons.schedule_rounded, text: 'Xảy ra lúc ${formatDateTime(r.occurredAt)}'),
           _InfoRow(icon: Icons.outbox_rounded, text: 'Gửi lúc ${formatDateTime(r.createdAt)}'),
@@ -264,7 +313,10 @@ class _ReportDetailViewState extends ConsumerState<_ReportDetailView> {
           ],
           if (r.lastNote != null && !user.role.isStaff) ...[
             const SizedBox(height: 16),
-            InfoNote('Ghi chú mới nhất của bảo vệ: ${r.lastNote}', icon: Icons.sticky_note_2_outlined),
+            InfoNote(
+              r.status == ReportStatus.cancelled ? 'Lý do huỷ: ${r.lastNote}' : 'Ghi chú mới nhất của bảo vệ: ${r.lastNote}',
+              icon: Icons.sticky_note_2_outlined,
+            ),
           ],
           const SizedBox(height: 24),
           const SectionTitle('Lịch sử và trao đổi'),
@@ -311,6 +363,110 @@ class _ReportDetailViewState extends ConsumerState<_ReportDetailView> {
               ),
             )
           : null,
+    );
+  }
+}
+
+/// Thẻ liên hệ cho người báo, như ứng dụng gọi xe: chờ bảo vệ nhận, rồi hiện tên và nút gọi.
+class _GuardContactCard extends ConsumerWidget {
+  const _GuardContactCard({required this.report});
+
+  final Report report;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    if (report.assigneeUid == null) {
+      return const Card(
+        child: ListTile(
+          leading: SizedBox.square(dimension: 24, child: CircularProgressIndicator(strokeWidth: 2.5)),
+          title: Text('Đang chờ bảo vệ nhận báo cáo'),
+          subtitle: Text('Khi bảo vệ nhận, bạn sẽ gọi hoặc nhắn trực tiếp được với họ.'),
+        ),
+      );
+    }
+    final contact = ref.watch(assigneeContactProvider(report.id)).value;
+    final phone = contact?.phone;
+    final onCard = TextStyle(color: theme.colorScheme.onPrimaryContainer);
+    return Card(
+      color: theme.colorScheme.primaryContainer,
+      child: ListTile(
+        leading: Icon(Icons.verified_user_rounded, color: theme.colorScheme.onPrimaryContainer),
+        title: Text('${contact?.displayName ?? report.assigneeName ?? 'Bảo vệ'} đã nhận báo cáo', style: onCard),
+        subtitle: Text(
+          phone == null
+              ? 'Nhắn bảo vệ ở ô bên dưới.'
+              : '${VietnamPhone.tryParse(phone)?.display ?? phone}. Gọi hoặc nhắn ở ô bên dưới.',
+          style: onCard,
+        ),
+        trailing: phone == null
+            ? null
+            : IconButton.filled(
+                key: const Key('call-guard'),
+                tooltip: 'Gọi bảo vệ',
+                onPressed: () => callHotline(phone),
+                icon: const Icon(Icons.call_rounded),
+              ),
+      ),
+    );
+  }
+}
+
+/// Xác nhận huỷ báo cáo, kèm lý do (không bắt buộc). Trả về lý do (có thể rỗng).
+class _CancelSheet extends StatefulWidget {
+  const _CancelSheet({required this.report});
+
+  final Report report;
+
+  @override
+  State<_CancelSheet> createState() => _CancelSheetState();
+}
+
+class _CancelSheetState extends State<_CancelSheet> {
+  final _reason = TextEditingController();
+
+  @override
+  void dispose() {
+    _reason.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + MediaQuery.viewInsetsOf(context).bottom),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('Huỷ báo cáo ${widget.report.code}?', style: theme.textTheme.titleLarge),
+            const SizedBox(height: 8),
+            const Text('Bảo vệ sẽ được báo là bạn đã huỷ. Báo cáo vẫn được lưu với trạng thái "Đã huỷ" để tra cứu.'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _reason,
+              minLines: 1,
+              maxLines: 3,
+              maxLength: ReportStatusMachine.maxCancelReasonLength,
+              decoration: const InputDecoration(labelText: 'Lý do (không bắt buộc)', hintText: 'Ví dụ: đã tìm thấy đồ'),
+            ),
+            const SizedBox(height: 8),
+            FilledButton(
+              key: const Key('confirm-cancel'),
+              style: FilledButton.styleFrom(
+                backgroundColor: theme.colorScheme.error,
+                foregroundColor: theme.colorScheme.onError,
+              ),
+              onPressed: () => Navigator.pop(context, _reason.text.trim()),
+              child: const Text('Huỷ báo cáo'),
+            ),
+            const SizedBox(height: 8),
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Không huỷ')),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -438,7 +594,8 @@ class _AssignmentSection extends StatelessWidget {
   }
 }
 
-/// Xác nhận chuyển trạng thái, kèm ghi chú (bắt buộc khi từ chối). Trả về ghi chú (có thể rỗng).
+/// Xác nhận chuyển trạng thái, kèm ghi chú (bắt buộc khi từ chối). Khi từ chối có thể đánh dấu
+/// báo cáo sai sự thật. Trả về ghi chú (có thể rỗng) và dấu báo sai.
 class _StatusNoteSheet extends StatefulWidget {
   const _StatusNoteSheet({required this.from, required this.to, required this.role});
 
@@ -453,6 +610,7 @@ class _StatusNoteSheet extends StatefulWidget {
 class _StatusNoteSheetState extends State<_StatusNoteSheet> {
   final _note = TextEditingController();
   String? _error;
+  bool _fake = false;
 
   @override
   void dispose() {
@@ -471,7 +629,7 @@ class _StatusNoteSheetState extends State<_StatusNoteSheet> {
       setState(() => _error = error);
       return;
     }
-    Navigator.pop(context, _note.text.trim());
+    Navigator.pop(context, (note: _note.text.trim(), fake: _fake));
   }
 
   @override
@@ -498,6 +656,17 @@ class _StatusNoteSheetState extends State<_StatusNoteSheet> {
               errorText: _error,
             ),
           ),
+          if (rejecting)
+            CheckboxListTile(
+              key: const Key('mark-fake'),
+              contentPadding: EdgeInsets.zero,
+              value: _fake,
+              onChanged: (v) => setState(() => _fake = v ?? false),
+              title: const Text('Báo cáo sai sự thật (tin giả)'),
+              subtitle: const Text(
+                'Người báo bị đánh dấu ${FakeReportPolicy.lockThreshold} lần sẽ tự động bị khoá tài khoản.',
+              ),
+            ),
           const SizedBox(height: 8),
           FilledButton(onPressed: _confirm, child: const Text('Xác nhận')),
           const SizedBox(height: 8),

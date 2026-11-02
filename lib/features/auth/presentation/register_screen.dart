@@ -10,8 +10,11 @@ import '../application/session.dart';
 import '../domain/auth_repository.dart';
 import 'auth_scaffold.dart';
 
-/// Đăng ký bước 1: họ tên, email, tên đăng nhập, mật khẩu. Bấm gửi thì backend gửi mã OTP tới
-/// email; tài khoản chỉ được tạo khi nhập đúng mã ở bước 2.
+/// Đăng ký bước 1: họ tên, MSSV, email, tên đăng nhập, mật khẩu. Bấm gửi thì backend gửi mã OTP
+/// tới email; tài khoản chỉ được tạo khi nhập đúng mã ở bước 2. Mỗi MSSV chỉ một tài khoản.
+///
+/// Tài khoản mới là Sinh viên (không cho tự chọn Giảng viên để né MSSV). Bảo vệ, giảng viên được
+/// quản trị tạo trước thì bỏ trống MSSV; backend quyết định khi nào bắt buộc.
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
 
@@ -21,6 +24,7 @@ class RegisterScreen extends ConsumerStatefulWidget {
 
 class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _name = TextEditingController();
+  final _studentId = TextEditingController();
   final _email = TextEditingController();
   final _username = TextEditingController();
   final _password = TextEditingController();
@@ -32,7 +36,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   @override
   void dispose() {
-    for (final c in [_name, _email, _username, _password, _confirm]) {
+    for (final c in [_name, _studentId, _email, _username, _password, _confirm]) {
       c.dispose();
     }
     super.dispose();
@@ -45,12 +49,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     });
     if (!_formKey.currentState!.validate()) return;
     setState(() => _busy = true);
-    // Tài khoản mới mặc định là Sinh viên; quản trị đổi sang Giảng viên nếu cần.
     final draft = RegistrationDraft(
       email: _email.text,
       username: _username.text,
       password: _password.text,
       displayName: _name.text,
+      studentId: _studentId.text,
     );
     try {
       final challenge = await ref.read(authRepositoryProvider).requestRegistration(draft);
@@ -100,6 +104,25 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   counterText: '',
                 ),
                 validator: ProfileLimits.validateDisplayName,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                key: const Key('student-id'),
+                controller: _studentId,
+                keyboardType: TextInputType.number,
+                textInputAction: TextInputAction.next,
+                autocorrect: false,
+                enableSuggestions: false,
+                maxLength: StudentIdPolicy.maxLength,
+                forceErrorText: _fieldErrors['studentId'],
+                decoration: const InputDecoration(
+                  labelText: 'Mã số sinh viên (MSSV)',
+                  helperText: 'Bắt buộc với sinh viên, mỗi MSSV một tài khoản. Bảo vệ được cấp tài khoản thì bỏ trống.',
+                  helperMaxLines: 2,
+                  prefixIcon: Icon(Icons.school_outlined),
+                  counterText: '',
+                ),
+                validator: (v) => (v ?? '').trim().isEmpty ? null : StudentIdPolicy.validate(v),
               ),
               const SizedBox(height: 16),
               TextFormField(

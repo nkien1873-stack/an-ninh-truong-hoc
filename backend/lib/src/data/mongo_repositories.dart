@@ -55,6 +55,8 @@ class MongoUserRepository implements UserRepository {
       email: email,
       phone: VietnamPhone.tryParse(d['phone'] as String?),
       username: readString(d['username']),
+      studentId: readString(d['studentId']),
+      fakeReports: (d['fakeReports'] as num?)?.toInt() ?? 0,
       displayName: (d['displayName'] as String?) ?? '',
       role: UserRole.fromWire(d['role'] as String?),
       memberType: MemberType.fromWire(d['memberType'] as String?),
@@ -71,6 +73,9 @@ class MongoUserRepository implements UserRepository {
         '_id': u.uid,
         'email': u.email.value,
         'username': u.username,
+        // Chỉ mục unique của MSSV bỏ qua tài liệu không có trường này, nên không ghi null.
+        'studentId': ?u.studentId,
+        'fakeReports': u.fakeReports,
         'phone': u.phone?.international,
         'phoneLocal': u.phone?.local,
         'displayName': u.displayName,
@@ -91,6 +96,10 @@ class MongoUserRepository implements UserRepository {
   @override
   Future<UserRecord?> byEmail(EmailAddress email) async =>
       fromDoc(await _store.run(_name, (c) => c.findOne(where.eq('email', email.value))));
+
+  @override
+  Future<UserRecord?> byStudentId(String studentId) async =>
+      fromDoc(await _store.run(_name, (c) => c.findOne(where.eq('studentId', studentId))));
 
   /// Chèn [user]; chỉ mục unique trên `email` đảm bảo mỗi email một tài khoản. `false` nếu đã có.
   Future<bool> _insert(UserRecord user) async {
@@ -156,13 +165,15 @@ class MongoUserRepository implements UserRepository {
     VietnamPhone? phone,
     bool clearPhone = false,
     String? username,
+    String? studentId,
+    int? fakeReports,
     MemberType? memberType,
     UserRole? role,
     bool? active,
     bool? onDuty,
     DateTime? lastLoginAt,
   }) async {
-    await _store.run(
+    final result = await _store.run(
       _name,
       (c) => c.updateOne(
         where.eq('_id', uid),
@@ -171,6 +182,8 @@ class MongoUserRepository implements UserRepository {
           if (clearPhone) ...{'phone': null, 'phoneLocal': null},
           if (phone != null) ...{'phone': phone.international, 'phoneLocal': phone.local},
           'username': ?username,
+          'studentId': ?studentId,
+          'fakeReports': ?fakeReports,
           if (memberType != null) 'memberType': memberType.wire,
           if (role != null) 'role': role.wire,
           'active': ?active,
@@ -180,9 +193,25 @@ class MongoUserRepository implements UserRepository {
         }),
       ),
     );
+    if (MongoStore.isDuplicate(result)) throw StateError('student_id_taken');
     final updated = await byId(uid);
     if (updated == null) throw StateError('user_not_found');
     return updated;
+  }
+
+  @override
+  Future<UserRecord?> addFakeReports(String uid, int delta) async {
+    final result = await _store.run(
+      _name,
+      (c) => c.modernFindAndModify(
+        query: where.eq('_id', uid),
+        update: modify
+          ..inc('fakeReports', delta)
+          ..set('updatedAt', _clock().toUtc()),
+        returnNew: true,
+      ),
+    );
+    return fromDoc(result.value);
   }
 
   /// Giữ tối đa [maxFcmTokens] thiết bị gần nhất để danh sách không phình vô hạn.
@@ -273,6 +302,7 @@ class MongoReportRepository implements ReportRepository {
         'assigneeName': r.assigneeName,
         'lastNote': r.lastNote,
         'closedAt': r.closedAt?.toUtc(),
+        'fake': r.fake,
       };
 
   static Map<String, Object?> eventDoc(ReportEvent e) => {
@@ -333,6 +363,7 @@ class MongoReportRepository implements ReportRepository {
       assigneeName: readString(d['assigneeName']),
       lastNote: readString(d['lastNote']),
       closedAt: readDate(d['closedAt']),
+      fake: d['fake'] == true,
     );
   }
 

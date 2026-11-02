@@ -33,6 +33,10 @@ final reporterContactProvider = Provider.autoDispose.family<AsyncValue<ReporterC
   (ref, id) => ref.watch(reportDetailProvider(id)).whenData((d) => d.contact),
 );
 
+final assigneeContactProvider = Provider.autoDispose.family<AsyncValue<AssigneeContact?>, String>(
+  (ref, id) => ref.watch(reportDetailProvider(id)).whenData((d) => d.assignee),
+);
+
 final openReportsProvider = StreamProvider.autoDispose<List<Report>>(
   (ref) => ref.watch(reportRepositoryProvider).watchOpenReports(),
 );

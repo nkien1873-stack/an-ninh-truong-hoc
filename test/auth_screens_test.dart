@@ -164,6 +164,7 @@ void main() {
   testWidgets('đăng ký: kiểm tra dữ liệu, gửi mã, nhập đúng OTP thì xác nhận', (tester) async {
     await pump(tester, AppRoutes.register);
     await tester.enterText(field('Họ và tên'), 'Trần Minh Khoa');
+    await tester.enterText(field('Mã số sinh viên (MSSV)'), '22806a');
     await tester.enterText(field('Email'), 'khoa@gmail.com');
     await tester.enterText(field('Tên đăng nhập'), 'khoa.tran');
     await tester.enterText(field('Mật khẩu'), 'matkhau123');
@@ -171,7 +172,9 @@ void main() {
     await tester.tap(find.text('Gửi mã xác nhận'));
     await tester.pumpAndSettle();
     expect(find.text('Mật khẩu nhập lại không khớp.'), findsOneWidget);
+    expect(find.text('MSSV chỉ gồm chữ số.'), findsOneWidget);
     expect(repo.requested, isNull);
+    await tester.enterText(field('Mã số sinh viên (MSSV)'), '2280600123');
 
     // Không còn ô chọn: tài khoản mới mặc định là Sinh viên.
     expect(find.byType(ChoiceChip), findsNothing);
@@ -180,6 +183,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(repo.requested!.username, 'khoa.tran');
     expect(repo.requested!.memberType, MemberType.student);
+    expect(repo.requested!.studentId, '2280600123');
     expect(find.text('Xác nhận email'), findsOneWidget);
 
     await tester.enterText(find.byType(TextField).last, '482915');

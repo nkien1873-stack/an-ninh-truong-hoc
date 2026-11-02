@@ -59,6 +59,7 @@ class RegistrationInput {
     required this.password,
     required this.displayName,
     required this.memberType,
+    this.studentId = '',
   });
 
   final String email;
@@ -68,6 +69,9 @@ class RegistrationInput {
 
   /// Người đăng ký tự chọn, chỉ Sinh viên hoặc Giảng viên ([MemberType.selfSelectable]).
   final String memberType;
+
+  /// Mã số sinh viên, bắt buộc khi là Sinh viên ([StudentIdPolicy]).
+  final String studentId;
 }
 
 /// Tài khoản: **đăng ký** bằng email + mã OTP gửi qua email, **đăng nhập** bằng tên đăng nhập
@@ -147,15 +151,19 @@ class AccountService {
     final name = input.displayName.trim();
     // Mặc định Sinh viên; nếu app gửi lựa chọn thì chỉ nhận Sinh viên/Giảng viên.
     final memberType = input.memberType.isEmpty ? MemberType.student : MemberType.tryFromWire(input.memberType);
+    final existing = await _users.byEmail(email);
+    // Tài khoản quản trị tạo trước (bảo vệ, giảng viên) giữ đối tượng đã gán nên không cần MSSV.
+    final isStudent = (existing?.memberType ?? memberType) == MemberType.student;
+    final studentId = StudentIdPolicy.normalize(input.studentId);
     final errors = <String, String>{
       if (memberType == null || !memberType.isSelfSelectable) 'memberType': 'Chọn Sinh viên hoặc Giảng viên.',
+      if (isStudent) 'studentId': ?StudentIdPolicy.validate(studentId),
       'username': ?UsernamePolicy.validate(username),
       'password': ?PasswordPolicy.validate(input.password),
       'displayName': ?ProfileLimits.validateDisplayName(name),
     };
     if (errors.isNotEmpty) throw ApiException.validation(errors);
 
-    final existing = await _users.byEmail(email);
     if (existing != null) {
       if (!existing.active) {
         throw ApiException.forbidden('Tài khoản của email này đã bị khoá. Liên hệ quản trị để được hỗ trợ.');
@@ -171,6 +179,9 @@ class AccountService {
     if (await _credentials.usernameTaken(username)) {
       throw ApiException.validation({'username': 'Tên đăng nhập này đã có người dùng. Chọn tên khác.'});
     }
+    if (isStudent && await _studentIdTaken(studentId, exceptUid: existing?.uid)) {
+      throw ApiException.validation({'studentId': _studentIdTakenMessage});
+    }
 
     // Chặn trước khi băm: băm mật khẩu tốn CPU, không để gửi hàng loạt làm nghẽn máy chủ.
     _limitSends(ip);
@@ -182,9 +193,17 @@ class AccountService {
         'username': username,
         'displayName': name,
         'memberType': memberType!.wire,
+        if (isStudent) 'studentId': studentId,
         'passwordHash': await _hasher.hashAsync(input.password),
       },
     );
+  }
+
+  static const _studentIdTakenMessage = 'MSSV này đã có tài khoản. Mỗi MSSV chỉ đăng ký một tài khoản.';
+
+  Future<bool> _studentIdTaken(String studentId, {String? exceptUid}) async {
+    final owner = await _users.byStudentId(studentId);
+    return owner != null && owner.uid != exceptUid;
   }
 
   /// Nhập đúng mã thì tạo tài khoản (hoặc nhận tài khoản quản trị tạo trước) và đăng nhập luôn.
@@ -206,6 +225,12 @@ class AccountService {
     if (!user.active) {
       throw ApiException.forbidden('Tài khoản này đã bị khoá. Liên hệ quản trị để được hỗ trợ.');
     }
+    final studentId = pending['studentId'];
+    // Người khác có thể đã dùng MSSV này trong lúc chờ nhập mã.
+    if (studentId != null && await _studentIdTaken(studentId, exceptUid: user.uid)) {
+      if (created) await _users.delete(user.uid);
+      throw ApiException.validation({'studentId': _studentIdTakenMessage});
+    }
     try {
       await _credentials.create(user.uid, username: username, passwordHash: passwordHash);
     } on StateError catch (e) {
@@ -214,15 +239,24 @@ class AccountService {
       }
       throw ApiException.validation({'username': 'Tên đăng nhập này vừa có người dùng. Hãy đăng ký lại với tên khác.'});
     }
-    user = await _users.update(
-      user.uid,
-      username: username,
-      displayName: user.profileComplete ? null : name,
-      // Tài khoản quản trị tạo trước giữ đối tượng đã gán (vd: Nhân viên của bảo vệ).
-      memberType: created ? MemberType.tryFromWire(pending['memberType']) : null,
-      role: isBootstrapAdmin && user.role != UserRole.admin ? UserRole.admin : null,
-      lastLoginAt: _clock().toUtc(),
-    );
+    try {
+      user = await _users.update(
+        user.uid,
+        username: username,
+        studentId: studentId,
+        displayName: user.profileComplete ? null : name,
+        // Tài khoản quản trị tạo trước giữ đối tượng đã gán (vd: Nhân viên của bảo vệ).
+        memberType: created ? MemberType.tryFromWire(pending['memberType']) : null,
+        role: isBootstrapAdmin && user.role != UserRole.admin ? UserRole.admin : null,
+        lastLoginAt: _clock().toUtc(),
+      );
+    } on StateError catch (e) {
+      if (e.message != 'student_id_taken') rethrow;
+      // Hai người đăng ký cùng MSSV đúng cùng lúc: chỉ mục unique chặn người sau.
+      await _credentials.delete(user.uid);
+      if (created) await _users.delete(user.uid);
+      throw ApiException.validation({'studentId': _studentIdTakenMessage});
+    }
     final token = await _auth.createCustomToken(user.uid, claims: {'role': user.role.wire});
     return SignInResult(customToken: token, user: user, isNewUser: created);
   }

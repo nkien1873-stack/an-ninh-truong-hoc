@@ -7,6 +7,8 @@ abstract interface class UserRepository {
 
   Future<UserRecord?> byEmail(EmailAddress email);
 
+  Future<UserRecord?> byStudentId(String studentId);
+
   /// Tìm theo email; nếu chưa có thì tạo mới với [role]. Trả về (người dùng, mới tạo?).
   /// Đảm bảo mỗi email chỉ có một tài khoản (chỉ mục unique trên `email`).
   Future<(UserRecord, bool)> getOrCreate(EmailAddress email, {required UserRole role});
@@ -21,18 +23,25 @@ abstract interface class UserRepository {
     bool onDuty = false,
   });
 
+  /// Ném [StateError] `student_id_taken` nếu [studentId] đã thuộc tài khoản khác.
   Future<UserRecord> update(
     String uid, {
     String? displayName,
     VietnamPhone? phone,
     bool clearPhone = false,
     String? username,
+    String? studentId,
+    int? fakeReports,
     MemberType? memberType,
     UserRole? role,
     bool? active,
     bool? onDuty,
     DateTime? lastLoginAt,
   });
+
+  /// Cộng [delta] vào số báo cáo sai sự thật (nguyên tử). Trả về hồ sơ sau khi cộng, `null` nếu
+  /// tài khoản đã bị xoá.
+  Future<UserRecord?> addFakeReports(String uid, int delta);
 
   Future<void> addFcmToken(String uid, String token);
 

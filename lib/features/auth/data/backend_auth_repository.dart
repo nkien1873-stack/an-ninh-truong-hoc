@@ -31,6 +31,7 @@ class BackendAuthRepository implements AuthRepository {
         'password': draft.password,
         'displayName': draft.displayName.trim(),
         'memberType': draft.memberType.wire,
+        if (draft.memberType == MemberType.student) 'studentId': StudentIdPolicy.normalize(draft.studentId),
       },
       false,
     );

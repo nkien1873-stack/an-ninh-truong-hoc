@@ -181,6 +181,7 @@ void main() {
 
   test('trao đổi: người báo ẩn danh vẫn ẩn tên; người khác không bình luận được', () async {
     final (report, _) = await service.create(student, draft(anonymous: true));
+    await service.changeStatus(guardOnDuty, report.id, to: ReportStatus.received);
     await service.comment(student, report.id, 'Xe màu xanh, biển 29B1-123.45');
     final event = reports.events[report.id]!.last;
     expect(event.type, ReportEventType.comment);
@@ -218,11 +219,132 @@ void main() {
     expect(created.actorUid, isNull);
   });
 
-  test('người báo nhắn khi chưa ai nhận việc: bảo vệ trực và quản trị đều nhận, bảo vệ nghỉ ca thì không', () async {
+  test('người báo chỉ nhắn được khi đã có bảo vệ nhận; tin nhắn tới đúng bảo vệ đó', () async {
     final (report, _) = await service.create(student, draft());
+    await expectLater(
+      service.comment(student, report.id, 'Xe màu xanh'),
+      throwsA(isA<ApiException>().having((e) => e.code, 'code', 'not_assigned')),
+    );
+    // Bảo vệ vẫn hỏi thêm được trước khi nhận.
+    await service.comment(guardOff, report.id, 'Bạn đang ở đâu?');
+
+    await service.changeStatus(guardOnDuty, report.id, to: ReportStatus.received);
     push.sent.clear();
     await service.comment(student, report.id, 'Xe màu xanh');
-    expect(push.sent.single.$1.toSet(), {'tok-g1', 'tok-admin'});
+    expect(push.sent.single.$1, ['tok-g1']);
+  });
+
+  test('chi tiết có người đang xử lý kèm số điện thoại để người báo gọi', () async {
+    final (report, _) = await service.create(student, draft());
+    expect((await service.detail(student, report.id)).toApiJson()['assignee'], isNull);
+    await service.changeStatus(guardOnDuty, report.id, to: ReportStatus.received);
+    final assignee = (await service.detail(student, report.id)).toApiJson()['assignee']! as Map;
+    expect(assignee['displayName'], 'Lê Văn Hùng');
+    expect(assignee['phoneLocal'], '0987654321');
+  });
+
+  group('người báo huỷ', () {
+    test('huỷ khi chưa xử lý: lưu trạng thái Đã huỷ, giữ mã, báo bảo vệ đang trực và quản trị', () async {
+      final (report, _) = await service.create(student, draft());
+      push.sent.clear();
+      final cancelled = await service.cancel(student, report.id, reason: 'Đã tìm thấy xe');
+      expect(cancelled.status, ReportStatus.cancelled);
+      expect(cancelled.code, report.code);
+      expect(cancelled.closedAt, isNotNull);
+      expect(reports.reports[report.id]!.status, ReportStatus.cancelled);
+      expect(reports.events[report.id]!.last.note, 'Người báo đã huỷ: Đã tìm thấy xe');
+      expect(push.sent.single.$1.toSet(), {'tok-g1', 'tok-admin'});
+      expect(await reports.listOpen(limit: 10), isEmpty);
+    });
+
+    test('đã có bảo vệ nhận: chỉ báo bảo vệ đó; ẩn danh vẫn ẩn tên trong lịch sử', () async {
+      final (report, _) = await service.create(student, draft(anonymous: true));
+      await service.changeStatus(guardOff, report.id, to: ReportStatus.received);
+      push.sent.clear();
+      await service.cancel(student, report.id);
+      expect(push.sent.single.$1, ['tok-g2']);
+      expect(reports.events[report.id]!.last.actorName, 'Người báo (ẩn danh)');
+      expect(reports.events[report.id]!.last.actorUid, isNull);
+    });
+
+    test('bảo vệ đang xử lý, báo cáo đã đóng, hoặc người khác: không huỷ được', () async {
+      final (report, _) = await service.create(student, draft());
+      await expectLater(service.cancel(guardOnDuty, report.id), throwsA(isA<ApiException>().having((e) => e.statusCode, 'status', 403)));
+      await service.changeStatus(guardOnDuty, report.id, to: ReportStatus.inProgress);
+      await expectLater(
+        service.cancel(student, report.id),
+        throwsA(isA<ApiException>().having((e) => e.code, 'code', 'cannot_cancel')),
+      );
+      await service.changeStatus(guardOnDuty, report.id, to: ReportStatus.resolved);
+      await expectLater(service.cancel(student, report.id), throwsA(isA<ApiException>()));
+    });
+
+    test('báo cáo đã huỷ không đổi trạng thái được nữa, kể cả quản trị', () async {
+      final (report, _) = await service.create(student, draft());
+      await service.cancel(student, report.id);
+      await expectLater(
+        service.changeStatus(admin, report.id, to: ReportStatus.received),
+        throwsA(isA<ApiException>().having((e) => e.code, 'code', 'invalid_transition')),
+      );
+    });
+  });
+
+  group('báo cáo sai sự thật', () {
+    Future<void> rejectFake(UserRecord reporter, {bool anonymous = false}) async {
+      final (report, _) = await service.create(reporter, draft(anonymous: anonymous));
+      await service.changeStatus(guardOnDuty, report.id, to: ReportStatus.rejected, note: 'Kiểm tra không có gì', fake: true);
+    }
+
+    test('đánh dấu khi từ chối: lưu dấu, ghi lịch sử, cộng số lần báo sai', () async {
+      final (report, _) = await service.create(student, draft());
+      final next = await service.changeStatus(guardOnDuty, report.id, to: ReportStatus.rejected, note: 'Không có xe nào mất', fake: true);
+      expect(next.fake, isTrue);
+      expect(reports.events[report.id]!.last.note, 'Báo cáo sai sự thật: Không có xe nào mất');
+      expect(users.byUid[student.uid]!.fakeReports, 1);
+      expect(users.byUid[student.uid]!.active, isTrue);
+    });
+
+    test('chỉ đánh dấu được khi từ chối', () async {
+      final (report, _) = await service.create(student, draft());
+      await expectLater(
+        service.changeStatus(guardOnDuty, report.id, to: ReportStatus.received, fake: true),
+        throwsA(isA<ApiException>().having((e) => e.statusCode, 'status', 422)),
+      );
+    });
+
+    test('đủ 3 lần (kể cả báo ẩn danh) thì tự khoá tài khoản và đăng xuất mọi máy', () async {
+      final revoked = <String>[];
+      service = ReportService(
+        reports: reports,
+        users: users,
+        clock: clock.call,
+        notifications: NotificationService(push: push, users: users),
+        revokeSessions: (uid) async => revoked.add(uid),
+      );
+      await rejectFake(student);
+      await rejectFake(student, anonymous: true);
+      expect(users.byUid[student.uid]!.active, isTrue);
+      await rejectFake(student);
+      expect(users.byUid[student.uid]!.fakeReports, 3);
+      expect(users.byUid[student.uid]!.active, isFalse);
+      expect(revoked, [student.uid]);
+    });
+
+    test('quản trị mở lại báo cáo bị đánh dấu nhầm thì trừ lại số lần', () async {
+      final (report, _) = await service.create(student, draft());
+      await service.changeStatus(guardOnDuty, report.id, to: ReportStatus.rejected, note: 'Kiểm tra không có gì', fake: true);
+      final reopened = await service.changeStatus(admin, report.id, to: ReportStatus.received);
+      expect(reopened.fake, isFalse);
+      expect(users.byUid[student.uid]!.fakeReports, 0);
+    });
+
+    test('bảo vệ hoặc quản trị gửi báo cáo bị đánh dấu sai: đếm nhưng không tự khoá', () async {
+      for (var i = 0; i < 3; i++) {
+        await rejectFake(guardOff);
+      }
+      expect(users.byUid[guardOff.uid]!.fakeReports, 3);
+      expect(users.byUid[guardOff.uid]!.active, isTrue);
+    });
   });
 
   test('ghi xung đột quá nhiều lần báo 409, không báo "không tìm thấy"', () async {

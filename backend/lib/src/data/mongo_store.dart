@@ -102,10 +102,19 @@ class MongoStore {
   static String _safe(Object e) => '$e'.replaceAll(RegExp(r'mongodb(\+srv)?://\S+'), '<uri>');
 
   Future<void> _ensureIndexes() async {
-    Future<void> index(String collection, Map<String, Object> keys, {bool unique = false}) =>
-        run(collection, (c) => c.createIndex(keys: keys, unique: unique));
+    Future<void> index(String collection, Map<String, Object> keys, {bool unique = false, Map<String, Object>? partial}) =>
+        run(collection, (c) => c.createIndex(keys: keys, unique: unique, partialFilterExpression: partial));
 
     await index(Collections.users, {'email': 1}, unique: true);
+    // Mỗi MSSV một tài khoản; tài khoản không có MSSV (giảng viên, bảo vệ) không tính.
+    await index(
+      Collections.users,
+      {'studentId': 1},
+      unique: true,
+      partial: {
+        'studentId': {r'$type': 'string'},
+      },
+    );
     await index(Collections.users, {'role': 1});
     await index(Collections.credentials, {'username': 1}, unique: true);
     await index(Collections.reports, {'createdAt': -1});

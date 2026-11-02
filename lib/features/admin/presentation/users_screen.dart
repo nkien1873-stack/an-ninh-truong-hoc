@@ -127,8 +127,10 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
                         title: Text(u.profileComplete ? u.displayName : 'Chưa có tên'),
                         subtitle: Text([
                           if (u.username.isEmpty) 'Chưa kích hoạt' else '@${u.username}',
+                          if (u.studentId.isNotEmpty) 'MSSV ${u.studentId}',
                           u.email,
                           if (u.hasPhone) u.phoneDisplay,
+                          if (u.fakeReports > 0) 'Báo sai ${u.fakeReports}/${FakeReportPolicy.lockThreshold} lần',
                           if (!u.active) 'Đã khoá',
                           if (u.onDuty) 'Đang trực',
                           if (u.uid == me?.uid) 'Bạn',

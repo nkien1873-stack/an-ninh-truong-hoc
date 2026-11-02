@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
@@ -9,6 +11,7 @@ import '../../../core/widgets/state_views.dart';
 import '../../auth/application/session.dart';
 import '../../campus/campus_info.dart';
 import '../../campus/hotline_button.dart';
+import '../application/emergency_draft.dart';
 import '../application/report_providers.dart';
 import '../../safety/broadcasts.dart';
 import '../../safety/walk_screen.dart';
@@ -166,8 +169,29 @@ class _ActionTile extends StatelessWidget {
 }
 
 /// Khối KHẨN CẤP: vật thể lớn nhất màn hình, nền đỏ, chữ trắng, cao tối thiểu 120dp.
-class EmergencyButton extends StatelessWidget {
+///
+/// Mở lại sheet khẩn cấp đang dở nếu lần trước người dùng bấm Home và Android đã đóng app ở nền.
+class EmergencyButton extends ConsumerStatefulWidget {
   const EmergencyButton({super.key});
+
+  @override
+  ConsumerState<EmergencyButton> createState() => _EmergencyButtonState();
+}
+
+class _EmergencyButtonState extends ConsumerState<EmergencyButton> {
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_restoreDraft());
+  }
+
+  Future<void> _restoreDraft() async {
+    final draft = await ref.read(emergencyDraftStoreProvider).load();
+    if (draft == null || !mounted) return;
+    // Sheet vẫn đang mở (app chỉ ở nền rồi quay lại) thì không mở thêm.
+    if (ModalRoute.of(context)?.isCurrent == false) return;
+    await showEmergencySheet(context, restore: draft);
+  }
 
   @override
   Widget build(BuildContext context) {

@@ -15,24 +15,28 @@ import '../../../core/widgets/status_chip.dart';
 import '../../auth/application/session.dart';
 import '../../campus/campus_info.dart';
 import '../../campus/hotline_button.dart';
+import '../application/emergency_draft.dart';
 import '../application/report_submitter.dart';
 import '../domain/report.dart';
 import 'widgets/submit_result_view.dart';
 
-/// Mở sheet khẩn cấp (chạm 1). Gửi bằng nút "Gửi cảnh báo ngay" (chạm 2).
-Future<void> showEmergencySheet(BuildContext context) async {
+/// Mở sheet khẩn cấp (chạm 1). Gửi bằng nút "Gửi cảnh báo ngay" (chạm 2). [restore] là bản nháp
+/// đang dở lần trước (người dùng bấm Home và Android đã đóng app ở nền).
+Future<void> showEmergencySheet(BuildContext context, {EmergencyDraft? restore}) async {
   unawaited(HapticFeedback.heavyImpact());
   if (!context.mounted) return;
   await showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
-    builder: (_) => const EmergencySheet(),
+    builder: (_) => EmergencySheet(restore: restore),
   );
 }
 
 class EmergencySheet extends ConsumerStatefulWidget {
-  const EmergencySheet({super.key});
+  const EmergencySheet({super.key, this.restore});
+
+  final EmergencyDraft? restore;
 
   @override
   ConsumerState<EmergencySheet> createState() => _EmergencySheetState();
@@ -64,6 +68,15 @@ class _EmergencySheetState extends ConsumerState<EmergencySheet> {
   @override
   void initState() {
     super.initState();
+    final restore = widget.restore;
+    if (restore != null) {
+      _type = restore.type;
+      _building = restore.building;
+      _note.text = restore.note;
+      _anonymous = restore.anonymous;
+    }
+    _note.addListener(_saveDraft);
+    _saveDraft();
     // Lấy GPS ngay khi mở để tiết kiệm thời gian.
     _locationRequest = _locate();
   }
@@ -72,6 +85,23 @@ class _EmergencySheetState extends ConsumerState<EmergencySheet> {
   void dispose() {
     _note.dispose();
     super.dispose();
+  }
+
+  /// Lưu lựa chọn hiện tại để mở lại được nếu app bị đóng khi đang ở nền.
+  void _saveDraft() {
+    if (_result != null) return;
+    unawaited(ref.read(emergencyDraftStoreProvider).save(EmergencyDraft(
+          type: _type,
+          building: _building,
+          note: _note.text,
+          anonymous: _anonymous,
+          savedAt: DateTime.now(),
+        )));
+  }
+
+  void _update(VoidCallback change) {
+    setState(change);
+    _saveDraft();
   }
 
   Future<void> _locate() async {
@@ -127,6 +157,7 @@ class _EmergencySheetState extends ConsumerState<EmergencySheet> {
             uploaderUid: user.uid,
           );
       unawaited(HapticFeedback.heavyImpact());
+      unawaited(ref.read(emergencyDraftStoreProvider).clear());
       if (mounted) setState(() => _result = result);
     } on ApiError catch (e) {
       if (mounted) setState(() => _error = e.message);
@@ -141,7 +172,6 @@ class _EmergencySheetState extends ConsumerState<EmergencySheet> {
     final palette = context.palette;
     final buildings = ref.watch(campusInfoProvider).value?.buildings ?? const <String>[];
     final result = _result;
-    final maxHeight = MediaQuery.sizeOf(context).height * 0.9;
 
     // Nội dung cuộn ở trên, nút hành động ghim ở chân sheet để luôn thấy "Gửi cảnh báo ngay"
     // mà không cần cuộn, kể cả trên máy màn nhỏ hoặc cỡ chữ lớn.
@@ -224,7 +254,7 @@ class _EmergencySheetState extends ConsumerState<EmergencySheet> {
                   avatar: Icon(incidentIcon(t), size: 18),
                   label: Text(t.label),
                   selected: _type == t,
-                  onSelected: (_) => setState(() => _type = t),
+                  onSelected: (_) => _update(() => _type = t),
                 ),
             ],
           ),
@@ -234,7 +264,7 @@ class _EmergencySheetState extends ConsumerState<EmergencySheet> {
             isExpanded: true,
             decoration: const InputDecoration(labelText: 'Khu vực (nếu biết)'),
             items: [for (final b in buildings) DropdownMenuItem(value: b, child: Text(b))],
-            onChanged: (v) => setState(() {
+            onChanged: (v) => _update(() {
               _building = v;
               _error = null;
             }),
@@ -250,7 +280,7 @@ class _EmergencySheetState extends ConsumerState<EmergencySheet> {
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             value: _anonymous,
-            onChanged: (v) => setState(() => _anonymous = v),
+            onChanged: (v) => _update(() => _anonymous = v),
             title: const Text('Gửi ẩn danh'),
             subtitle: const Text('Bảo vệ không thấy tên và số điện thoại của bạn.'),
           ),
@@ -295,6 +325,18 @@ class _EmergencySheetState extends ConsumerState<EmergencySheet> {
 
     final duration = MediaQuery.disableAnimationsOf(context) ? Duration.zero : const Duration(milliseconds: 200);
     final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
+    // Người dùng tự đóng sheet (vuốt xuống, nút Back) thì bỏ bản nháp. App bị đóng ở nền hoặc
+    // điều hướng gỡ sheet thì không có lần "pop" này, nên bản nháp còn để mở lại.
+    return PopScope(
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) unawaited(ref.read(emergencyDraftStoreProvider).clear());
+      },
+      child: _buildSheet(theme, body, footer, duration, keyboardOpen),
+    );
+  }
+
+  Widget _buildSheet(ThemeData theme, Widget body, Widget footer, Duration duration, bool keyboardOpen) {
+    final maxHeight = MediaQuery.sizeOf(context).height * 0.9;
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
       child: ConstrainedBox(

@@ -42,6 +42,7 @@ class Report {
     this.assigneeName,
     this.lastNote,
     this.closedAt,
+    this.fake = false,
   });
 
   factory Report.fromJson(Map<String, dynamic> j) => Report.fromMap(j['id'] as String, j);
@@ -75,6 +76,7 @@ class Report {
         assigneeName: _str(d['assigneeName']),
         lastNote: _str(d['lastNote']),
         closedAt: _dateOrNull(d['closedAt']),
+        fake: d['fake'] == true,
       );
 
   final String id;
@@ -104,6 +106,9 @@ class Report {
   final String? assigneeName;
   final String? lastNote;
   final DateTime? closedAt;
+
+  /// Bảo vệ/quản trị đã đánh dấu là báo cáo sai sự thật.
+  final bool fake;
 
   bool get hasCoordinates => latitude != null && longitude != null;
 
@@ -216,9 +221,25 @@ class ReporterContact {
   final String displayName;
 }
 
-/// Chi tiết một báo cáo: nội dung, lịch sử, và người báo nếu người xem được phép biết.
+/// Người đang xử lý báo cáo, để người báo gọi hoặc nhắn khi bảo vệ đã nhận.
+class AssigneeContact {
+  const AssigneeContact({required this.uid, required this.displayName, this.phone});
+
+  factory AssigneeContact.fromMap(Map<String, dynamic> d) => AssigneeContact(
+        uid: (d['uid'] as String?) ?? '',
+        displayName: (d['displayName'] as String?) ?? '',
+        phone: _str(d['phoneLocal']),
+      );
+
+  final String uid;
+  final String displayName;
+  final String? phone;
+}
+
+/// Chi tiết một báo cáo: nội dung, lịch sử, người báo nếu người xem được phép biết, và người
+/// đang xử lý.
 class ReportDetail {
-  const ReportDetail({required this.report, this.events = const [], this.contact});
+  const ReportDetail({required this.report, this.events = const [], this.contact, this.assignee});
 
   factory ReportDetail.fromJson(Map<String, Object?> j) => ReportDetail(
         report: Report.fromJson((j['report']! as Map).cast<String, dynamic>()),
@@ -227,11 +248,13 @@ class ReportDetail {
             ReportEventItem.fromMap('${e['id']}', e.cast<String, dynamic>()),
         ],
         contact: j['reporter'] is Map ? ReporterContact.fromMap((j['reporter']! as Map).cast<String, dynamic>()) : null,
+        assignee: j['assignee'] is Map ? AssigneeContact.fromMap((j['assignee']! as Map).cast<String, dynamic>()) : null,
       );
 
   final Report report;
   final List<ReportEventItem> events;
   final ReporterContact? contact;
+  final AssigneeContact? assignee;
 }
 
 /// Kết quả gửi báo cáo.

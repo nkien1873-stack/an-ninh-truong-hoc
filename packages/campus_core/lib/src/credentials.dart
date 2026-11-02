@@ -42,6 +42,31 @@ abstract final class PasswordPolicy {
   }
 }
 
+/// Mã số sinh viên: bắt buộc khi đăng ký là Sinh viên, mỗi MSSV chỉ một tài khoản.
+abstract final class StudentIdPolicy {
+  static const minLength = 6;
+  static const maxLength = 12;
+
+  static final _pattern = RegExp(r'^\d+$');
+
+  static String normalize(String input) => input.replaceAll(RegExp(r'\s'), '');
+
+  /// Lỗi tiếng Việt, hoặc `null` nếu hợp lệ.
+  static String? validate(String? input) {
+    final v = normalize(input ?? '');
+    if (v.isEmpty) return 'Nhập mã số sinh viên (MSSV).';
+    if (!_pattern.hasMatch(v)) return 'MSSV chỉ gồm chữ số.';
+    if (v.length < minLength || v.length > maxLength) return 'MSSV dài $minLength đến $maxLength chữ số.';
+    return null;
+  }
+}
+
+/// Báo cáo sai sự thật: bảo vệ hoặc quản trị đánh dấu khi từ chối. Đủ [lockThreshold] lần thì
+/// tài khoản người báo tự bị khoá (kể cả khi báo ẩn danh, backend vẫn biết ai gửi).
+abstract final class FakeReportPolicy {
+  static const lockThreshold = 3;
+}
+
 /// Giới hạn đăng nhập sai.
 abstract final class LoginPolicy {
   static const maxFailures = 5;

@@ -9,7 +9,8 @@ import 'enums.dart';
 /// ```
 ///
 /// Bảo vệ có thể bỏ qua bước "Đã tiếp nhận" (nhận và xử lý ngay). Chỉ quản trị được mở lại
-/// một báo cáo đã đóng.
+/// một báo cáo đã giải quyết hoặc từ chối. Người báo tự huỷ được khi báo cáo còn "Đã gửi" hoặc
+/// "Đã tiếp nhận" ([canCancel]); báo cáo đã huỷ không mở lại.
 abstract final class ReportStatusMachine {
   static const Map<ReportStatus, Set<ReportStatus>> _staffTransitions = {
     ReportStatus.submitted: {
@@ -28,7 +29,14 @@ abstract final class ReportStatusMachine {
     },
     ReportStatus.resolved: {},
     ReportStatus.rejected: {},
+    ReportStatus.cancelled: {},
   };
+
+  /// Người báo được tự huỷ khi bảo vệ chưa bắt đầu xử lý (giống huỷ chuyến trước khi tài xế tới).
+  static bool canCancel(ReportStatus from) => from == ReportStatus.submitted || from == ReportStatus.received;
+
+  /// Lý do huỷ, tối đa.
+  static const int maxCancelReasonLength = 200;
 
   static const Map<ReportStatus, Set<ReportStatus>> _adminReopen = {
     ReportStatus.resolved: {ReportStatus.inProgress},
@@ -91,6 +99,7 @@ abstract final class ReportStatusMachine {
       ReportStatus.resolved => 'Đánh dấu đã giải quyết',
       ReportStatus.rejected => 'Từ chối',
       ReportStatus.submitted => 'Đặt lại',
+      ReportStatus.cancelled => 'Huỷ báo cáo',
     };
   }
 }

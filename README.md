@@ -128,10 +128,17 @@ Biến quan trọng khác trong `.env`:
 
 Các API: `GET /config`, `POST /auth/register/request`, `POST /auth/register/verify`, `POST /auth/login`,
 `POST /auth/password/forgot`, `POST /auth/password/reset`, `POST /me/password`, `DELETE /admin/users/{uid}`, `POST /images`, `GET /images/{id}`, `GET|PATCH /me`, `POST|DELETE /me/fcm_token`,
-`POST /reports`, `POST /reports/{id}/status|assign|comments`, `POST /admin/users`, `PATCH /admin/users/{uid}`,
+`POST /reports`, `POST /reports/{id}/status|assign|comments|cancel`, `POST /admin/users`, `PATCH /admin/users/{uid}`,
 `PUT /admin/config`,
 `POST /admin/broadcasts`, `POST /admin/broadcasts/{id}/end`, `POST /walks`,
 `POST /walks/{id}/location|arrive|cancel|extend|sos`.
+
+Quy tắc nghiệp vụ thêm:
+
+- Đăng ký là Sinh viên phải nhập MSSV; mỗi MSSV chỉ một tài khoản (chỉ mục unique trên `users.studentId`).
+- Người báo tự huỷ báo cáo khi còn "Đã gửi" hoặc "Đã tiếp nhận" (`POST /reports/{id}/cancel`); báo cáo vẫn lưu với trạng thái "Đã huỷ".
+- Bảo vệ/quản trị từ chối kèm `fake: true` để đánh dấu báo cáo sai sự thật; người báo bị đánh dấu 3 lần thì tài khoản tự khoá. Quản trị mở khoá thì số lần được đặt lại.
+- Người báo chỉ nhắn được khi đã có bảo vệ nhận báo cáo; lúc đó app hiện tên, số điện thoại và nút gọi bảo vệ.
 
 Backend quét các lượt "Đi cùng tôi" quá giờ mỗi 30 giây (`WalkService.startOverdueTimer`).
 Chạy nhiều backend cùng lúc trên một CSDL vẫn an toàn: mọi thay đổi trạng thái lượt đi

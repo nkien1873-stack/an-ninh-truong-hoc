@@ -106,14 +106,17 @@ enum ReportStatus {
   received('received', 'Đã tiếp nhận'),
   inProgress('in_progress', 'Đang xử lý'),
   resolved('resolved', 'Đã giải quyết'),
-  rejected('rejected', 'Từ chối');
+  rejected('rejected', 'Từ chối'),
+
+  /// Người báo tự huỷ trước khi bảo vệ bắt đầu xử lý. Báo cáo vẫn được lưu để tra cứu.
+  cancelled('cancelled', 'Đã huỷ');
 
   const ReportStatus(this.wire, this.label);
 
   final String wire;
   final String label;
 
-  bool get isClosed => this == resolved || this == rejected;
+  bool get isClosed => this == resolved || this == rejected || this == cancelled;
   bool get isOpen => !isClosed;
 
   static ReportStatus fromWire(String? wire) =>

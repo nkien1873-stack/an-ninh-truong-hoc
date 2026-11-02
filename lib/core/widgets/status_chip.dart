@@ -9,6 +9,7 @@ IconData statusIcon(ReportStatus s) => switch (s) {
       ReportStatus.inProgress => Icons.pending_actions_rounded,
       ReportStatus.resolved => Icons.task_alt_rounded,
       ReportStatus.rejected => Icons.block_rounded,
+      ReportStatus.cancelled => Icons.cancel_outlined,
     };
 
 IconData incidentIcon(IncidentType t) => switch (t) {
