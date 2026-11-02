@@ -327,7 +327,8 @@ class _UserFormSheetState extends ConsumerState<UserFormSheet> {
                   title: const Text('Đang trực'),
                   subtitle: const Text('Nhận cảnh báo khi có sự cố mới.'),
                 ),
-              if (!_isNew && !widget.isSelf) ...[
+              // Chỉ người báo bị đếm cảnh báo báo sai; bảo vệ và quản trị không có mục này.
+              if (!_isNew && !widget.isSelf && _role == UserRole.reporter) ...[
                 const SizedBox(height: 8),
                 _FakeReportStepper(
                   value: _fakeReports,

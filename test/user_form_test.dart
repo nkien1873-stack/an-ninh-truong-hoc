@@ -81,6 +81,17 @@ void main() {
     expect(find.text('Đối tượng'), findsOneWidget);
   });
 
+  testWidgets('bảo vệ và quản trị không có mục số lần cảnh báo', (tester) async {
+    await pump(tester, form(_user()));
+    expect(find.byKey(const Key('fake-report-count')), findsOneWidget);
+    await tester.tap(find.text('Bảo vệ'));
+    await tester.pump();
+    expect(find.byKey(const Key('fake-report-count')), findsNothing);
+    await tester.tap(find.text('Quản trị'));
+    await tester.pump();
+    expect(find.byKey(const Key('fake-report-count')), findsNothing);
+  });
+
   testWidgets('chỉnh số lần cảnh báo bằng nút trừ/cộng rồi lưu', (tester) async {
     await pump(tester, form(_user(fake: 1)));
     expect(find.text('1/3'), findsOneWidget);
