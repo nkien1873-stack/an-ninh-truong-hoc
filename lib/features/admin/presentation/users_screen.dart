@@ -334,6 +334,7 @@ class _UserFormSheetState extends ConsumerState<UserFormSheet> {
                   title: const Text('Đang trực'),
                   subtitle: const Text('Nhận cảnh báo khi có sự cố mới.'),
                 ),
+              if (!_isNew) _FakeReportCount(user: widget.existing!),
               if (!_isNew)
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
@@ -365,5 +366,36 @@ class _UserFormSheetState extends ConsumerState<UserFormSheet> {
             ],
           ),
         );
+  }
+}
+
+/// Số lần bị bảo vệ/quản trị đánh dấu báo cáo sai sự thật. Người báo đủ
+/// [FakeReportPolicy.lockThreshold] lần thì tự bị khoá; mở khoá thì đếm lại từ 0.
+class _FakeReportCount extends StatelessWidget {
+  const _FakeReportCount({required this.user});
+
+  final AppUser user;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final count = user.fakeReports;
+    const limit = FakeReportPolicy.lockThreshold;
+    final reached = count >= limit;
+    final color = count == 0 ? theme.colorScheme.onSurfaceVariant : theme.colorScheme.error;
+    return ListTile(
+      key: const Key('fake-report-count'),
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(Icons.report_gmailerrorred_rounded, color: color),
+      title: const Text('Số lần báo cáo sai sự thật'),
+      subtitle: Text(
+        reached && !user.active
+            ? 'Đã tự khoá vì báo sai $limit lần. Bật "Cho phép đăng nhập" để mở khoá và đếm lại từ 0.'
+            : user.role == UserRole.reporter
+                ? 'Đủ $limit lần thì tài khoản tự bị khoá.'
+                : 'Chỉ tài khoản Người báo mới tự bị khoá.',
+      ),
+      trailing: Text('$count/$limit', style: theme.textTheme.titleLarge?.copyWith(color: color)),
+    );
   }
 }
