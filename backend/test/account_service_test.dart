@@ -242,12 +242,8 @@ void main() {
       expect(b.user.uid, a.user.uid);
     });
 
-    test('sai mật khẩu: báo chung chung, sai 5 lần thì khoá 15 phút', () async {
-      await expectLater(
-        svc.login('khoa.tran', 'sai12345', ip: '1'),
-        throwsA(apiError('invalid_credentials', status: 401)
-            .having((e) => e.message, 'm', 'Tên đăng nhập hoặc mật khẩu không đúng.')),
-      );
+    test('sai mật khẩu 5 lần thì khoá 15 phút, hết khoá đăng nhập lại được', () async {
+      await expectLater(svc.login('khoa.tran', 'sai12345', ip: '1'), throwsA(apiError('invalid_credentials', status: 401)));
       for (var i = 0; i < 3; i++) {
         await expectLater(svc.login('khoa.tran', 'sai12345', ip: '1'), throwsA(apiError('invalid_credentials')));
       }
@@ -259,19 +255,25 @@ void main() {
       expect(credentials.byUidMap[ok.user.uid]!.failedAttempts, 0);
     });
 
-    test('sai mật khẩu lần 1 đến 4: phản hồi y hệt tên không tồn tại (không lộ tài khoản)', () async {
-      Future<(int, String, String)> attempt(String name) async {
-        try {
-          await svc.login(name, 'sai12345', ip: '1');
-        } on ApiException catch (e) {
-          return (e.statusCode, e.code, e.message);
-        }
-        fail('phải báo lỗi');
+    test('sai mật khẩu lần 1 đến 4: báo số lần sai x/5; quản trị thấy cùng con số', () async {
+      for (var i = 1; i < LoginPolicy.maxFailures; i++) {
+        await expectLater(
+          svc.login('khoa.tran', 'sai12345', ip: '1'),
+          throwsA(apiError('invalid_credentials', status: 401)
+              .having((e) => e.message, 'message', startsWith('Sai mật khẩu $i/${LoginPolicy.maxFailures} lần.'))
+              .having((e) => e.details?['failedAttempts'], 'failedAttempts', i)),
+        );
       }
+      final uid = credentials.byUidMap.keys.single;
+      final status = (await svc.loginStatus([uid, 'khong-co']))[uid]!;
+      expect(status['failedLogins'], LoginPolicy.maxFailures - 1);
+      expect(status['loginLockedUntil'], isNull);
 
-      for (var i = 0; i < LoginPolicy.maxFailures - 1; i++) {
-        expect(await attempt('khoa.tran'), await attempt('khong.co'), reason: 'lần sai thứ ${i + 1}');
-      }
+      // Lần thứ 5 thì tạm khoá; quản trị thấy 5/5 và giờ hết khoá.
+      await expectLater(svc.login('khoa.tran', 'sai12345', ip: '1'), throwsA(apiError('login_locked')));
+      final locked = (await svc.loginStatus([uid]))[uid]!;
+      expect(locked['failedLogins'], LoginPolicy.maxFailures);
+      expect(locked['loginLockedUntil'], isNotNull);
     });
 
     test('tên không tồn tại báo giống sai mật khẩu', () async {

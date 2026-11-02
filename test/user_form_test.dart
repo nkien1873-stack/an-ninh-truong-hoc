@@ -35,7 +35,7 @@ class _RecordingAdmin implements AdminRepository {
   dynamic noSuchMethod(Invocation invocation) => throw UnimplementedError(invocation.memberName.toString());
 }
 
-AppUser _user({int fake = 0, bool active = true}) => AppUser(
+AppUser _user({int fake = 0, bool active = true, int failedLogins = 0, DateTime? lockedUntil}) => AppUser(
       uid: 'u9',
       email: 'doduu49@gmail.com',
       phone: '',
@@ -45,6 +45,8 @@ AppUser _user({int fake = 0, bool active = true}) => AppUser(
       active: active,
       onDuty: false,
       fakeReports: fake,
+      failedLogins: failedLogins,
+      loginLockedUntil: lockedUntil,
     );
 
 void main() {
@@ -79,6 +81,16 @@ void main() {
     await pump(tester, form(_user()));
     expect(find.text('Người báo'), findsOneWidget);
     expect(find.text('Đối tượng'), findsOneWidget);
+  });
+
+  testWidgets('quản trị thấy số lần đăng nhập sai liên tiếp, và giờ hết tạm khoá', (tester) async {
+    await pump(tester, form(_user(failedLogins: 2)));
+    expect(find.text('Đăng nhập sai liên tiếp'), findsOneWidget);
+    expect(find.text('2/5'), findsOneWidget);
+
+    await pump(tester, form(_user(failedLogins: 5, lockedUntil: DateTime(2026, 11, 2, 23, 15))));
+    expect(find.text('5/5'), findsOneWidget);
+    expect(find.text('Đang tạm khoá đăng nhập tới 23:15.'), findsOneWidget);
   });
 
   testWidgets('bảo vệ và quản trị không có mục số lần cảnh báo', (tester) async {

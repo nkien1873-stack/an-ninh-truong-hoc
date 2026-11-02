@@ -4,8 +4,8 @@ import 'package:campus_core/campus_core.dart';
 import 'package:campus_safety_backend/backend.dart';
 import 'package:dart_frog/dart_frog.dart';
 
-/// GET /admin/users?role=reporter|guard|admin : danh sách tài khoản; không có `role` thì lấy bảo vệ
-/// và quản trị (để phân công).
+/// GET /admin/users?role=reporter|guard|admin : danh sách tài khoản, kèm số lần đăng nhập sai liên
+/// tiếp; không có `role` thì lấy bảo vệ và quản trị (để phân công).
 /// POST /admin/users {email, phone?, displayName, role, memberType?, onDuty?} : tạo trước tài khoản
 /// (bảo vệ, quản trị, hoặc người báo khi tắt tự đăng ký).
 Future<Response> onRequest(RequestContext context) async {
@@ -14,7 +14,12 @@ Future<Response> onRequest(RequestContext context) async {
   if (context.request.method == HttpMethod.get) {
     final role = UserRole.tryFromWire(context.request.uri.queryParameters['role']);
     final users = await services.users.listByRoles(role == null ? {UserRole.guard, UserRole.admin} : {role});
-    return Response.json(body: {'users': [for (final u in users) u.toApiJson()]});
+    final logins = await services.accounts.loginStatus(users.map((u) => u.uid));
+    return Response.json(body: {
+      'users': [
+        for (final u in users) {...u.toApiJson(), ...?logins[u.uid]},
+      ],
+    });
   }
   final body = await readJsonObject(context.request);
 

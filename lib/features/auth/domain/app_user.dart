@@ -9,6 +9,8 @@ class AppUser {
     this.username = '',
     this.studentId = '',
     this.fakeReports = 0,
+    this.failedLogins = 0,
+    this.loginLockedUntil,
     required this.displayName,
     required this.role,
     required this.memberType,
@@ -23,6 +25,8 @@ class AppUser {
         username: (j['username'] as String?) ?? '',
         studentId: (j['studentId'] as String?) ?? '',
         fakeReports: (j['fakeReports'] as num?)?.toInt() ?? 0,
+        failedLogins: (j['failedLogins'] as num?)?.toInt() ?? 0,
+        loginLockedUntil: DateTime.tryParse((j['loginLockedUntil'] as String?) ?? '')?.toLocal(),
         phone: (j['phone'] as String?) ?? '',
         displayName: (j['displayName'] as String?) ?? '',
         role: UserRole.fromWire(j['role'] as String?),
@@ -44,6 +48,12 @@ class AppUser {
 
   /// Số báo cáo bị đánh dấu sai sự thật.
   final int fakeReports;
+
+  /// Số lần nhập sai mật khẩu liên tiếp (chỉ quản trị nhận được).
+  final int failedLogins;
+
+  /// Đang tạm khoá đăng nhập vì nhập sai nhiều lần thì tới lúc này mới thử lại được.
+  final DateTime? loginLockedUntil;
 
   /// Số liên hệ dạng `0xxxxxxxxx`, rỗng nếu chưa nhập.
   final String phone;

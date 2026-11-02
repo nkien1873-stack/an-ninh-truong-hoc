@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../../core/format/formatters.dart';
 import '../../../core/network/api_error.dart';
 import '../../../core/widgets/form_page.dart';
 import '../../../core/widgets/state_views.dart';
@@ -128,6 +129,7 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
                           u.email,
                           if (u.hasPhone) u.phoneDisplay,
                           if (u.fakeReports > 0) 'Báo sai ${u.fakeReports}/${FakeReportPolicy.lockThreshold} lần',
+                          if (u.failedLogins > 0) 'Đăng nhập sai ${u.failedLogins}/${LoginPolicy.maxFailures}',
                           if (!u.active) 'Đã khoá',
                           if (u.onDuty) 'Đang trực',
                           if (u.uid == me?.uid) 'Bạn',
@@ -327,6 +329,7 @@ class _UserFormSheetState extends ConsumerState<UserFormSheet> {
                   title: const Text('Đang trực'),
                   subtitle: const Text('Nhận cảnh báo khi có sự cố mới.'),
                 ),
+              if (!_isNew) _FailedLogins(user: widget.existing!),
               // Chỉ người báo bị đếm cảnh báo báo sai; bảo vệ và quản trị không có mục này.
               if (!_isNew && !widget.isSelf && _role == UserRole.reporter) ...[
                 const SizedBox(height: 8),
@@ -373,6 +376,30 @@ class _UserFormSheetState extends ConsumerState<UserFormSheet> {
             ],
           ),
         );
+  }
+}
+
+/// Số lần nhập sai mật khẩu liên tiếp; đủ [LoginPolicy.maxFailures] lần thì tạm khoá đăng nhập.
+class _FailedLogins extends StatelessWidget {
+  const _FailedLogins({required this.user});
+
+  final AppUser user;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    const limit = LoginPolicy.maxFailures;
+    final locked = user.loginLockedUntil;
+    final color = user.failedLogins == 0 ? theme.colorScheme.onSurface : theme.colorScheme.error;
+    return ListTile(
+      key: const Key('failed-logins'),
+      contentPadding: EdgeInsets.zero,
+      title: Text('Đăng nhập sai liên tiếp', style: theme.textTheme.titleSmall),
+      subtitle: locked != null
+          ? Text('Đang tạm khoá đăng nhập tới ${formatTime(locked)}.', style: TextStyle(color: theme.colorScheme.error))
+          : null,
+      trailing: Text('${user.failedLogins}/$limit', style: theme.textTheme.titleLarge?.copyWith(color: color)),
+    );
   }
 }
 

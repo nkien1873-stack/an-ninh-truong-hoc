@@ -341,6 +341,22 @@ class AccountService {
   // ---------------------------------------------------------------- Đăng nhập
 
   /// [identifier] là tên đăng nhập hoặc email.
+  /// Số lần đăng nhập sai liên tiếp và thời điểm hết tạm khoá của từng tài khoản (màn quản trị).
+  /// Tài khoản chưa có mật khẩu (quản trị tạo trước, chưa kích hoạt) không có trong kết quả.
+  Future<Map<String, Map<String, Object?>>> loginStatus(Iterable<String> uids) async {
+    final now = _clock().toUtc();
+    final entries = await Future.wait(uids.map((uid) async => (uid, await _credentials.byUid(uid))));
+    return {
+      for (final (uid, cred) in entries)
+        if (cred != null)
+          uid: {
+            'failedLogins': (cred.lockedUntil?.isAfter(now) ?? false) ? LoginPolicy.maxFailures : cred.failedAttempts,
+            'maxLoginFailures': LoginPolicy.maxFailures,
+            'loginLockedUntil': (cred.lockedUntil?.isAfter(now) ?? false) ? cred.lockedUntil!.toIso8601String() : null,
+          },
+    };
+  }
+
   Future<SignInResult> login(String identifier, String password, {required String ip}) async {
     final ipWait = _ipLogin.hit(ip);
     if (ipWait != null) {
@@ -392,9 +408,15 @@ class AccountService {
         );
       }
       await _credentials.recordFailure(cred.uid, attempts: attempts);
-      // Báo y hệt trường hợp tên không tồn tại: không kèm số lần thử còn lại, vì con số đó chỉ có
-      // khi tài khoản tồn tại và sẽ lộ tên đăng nhập.
-      throw ApiException(HttpStatus.unauthorized, 'invalid_credentials', _invalidLogin);
+      // Nhóm chọn báo số lần sai để người dùng biết sắp bị khoá, chấp nhận việc tên đăng nhập có
+      // thật thì phản hồi khác tên không tồn tại.
+      throw ApiException(
+        HttpStatus.unauthorized,
+        'invalid_credentials',
+        'Sai mật khẩu $attempts/${LoginPolicy.maxFailures} lần. '
+            'Sai ${LoginPolicy.maxFailures} lần sẽ tạm khoá đăng nhập ${LoginPolicy.lockDuration.inMinutes} phút.',
+        details: {'failedAttempts': attempts, 'maxFailures': LoginPolicy.maxFailures},
+      );
     }
 
     final user = await _users.byId(cred.uid);
