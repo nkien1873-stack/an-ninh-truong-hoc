@@ -46,7 +46,9 @@ class _StartWalkForm extends ConsumerStatefulWidget {
 }
 
 class _StartWalkFormState extends ConsumerState<_StartWalkForm> {
+  // Chỉ dùng khi trường chưa cấu hình danh sách khu vực.
   final _destination = TextEditingController();
+  String? _picked;
   final _formKey = GlobalKey<FormState>();
   int _minutes = 15;
   bool _starting = false;
@@ -73,7 +75,7 @@ class _StartWalkFormState extends ConsumerState<_StartWalkForm> {
       // Không có GPS vẫn cho đi; nơi đến được dùng làm khu vực khi báo bảo vệ.
     }
     try {
-      await ref.read(walkRepositoryProvider).start(destination: _destination.text, minutes: _minutes, at: at);
+      await ref.read(walkRepositoryProvider).start(destination: _picked ?? _destination.text, minutes: _minutes, at: at);
       unawaited(HapticFeedback.mediumImpact());
     } on ApiError catch (e) {
       setState(() => _error = e.fieldErrors.values.firstOrNull ?? e.message);
@@ -93,28 +95,31 @@ class _StartWalkFormState extends ConsumerState<_StartWalkForm> {
         children: [
           const _HowItWorks(),
           const SizedBox(height: 24),
-          TextFormField(
-            controller: _destination,
-            textCapitalization: TextCapitalization.sentences,
-            maxLength: 80,
-            decoration: const InputDecoration(
-              labelText: 'Bạn đang đi tới đâu?',
-              hintText: 'Ví dụ: Ký túc xá khu B',
-              prefixIcon: Icon(Icons.place_outlined),
+          if (buildings.isNotEmpty)
+            DropdownButtonFormField<String>(
+              key: const Key('walk-destination'),
+              initialValue: _picked,
+              isExpanded: true,
+              decoration: const InputDecoration(
+                labelText: 'Bạn đang đi tới đâu?',
+                prefixIcon: Icon(Icons.place_outlined),
+              ),
+              items: [for (final b in buildings) DropdownMenuItem(value: b, child: Text(b))],
+              onChanged: (v) => setState(() => _picked = v),
+              validator: (v) => v == null ? 'Chọn nơi bạn đang đi tới.' : null,
+            )
+          else
+            TextFormField(
+              controller: _destination,
+              textCapitalization: TextCapitalization.sentences,
+              maxLength: 80,
+              decoration: const InputDecoration(
+                labelText: 'Bạn đang đi tới đâu?',
+                prefixIcon: Icon(Icons.place_outlined),
+              ),
+              validator: (v) => (v?.trim().length ?? 0) < 2 ? 'Nhập nơi bạn đang đi tới.' : null,
             ),
-            validator: (v) => (v?.trim().length ?? 0) < 2 ? 'Nhập nơi bạn đang đi tới.' : null,
-          ),
-          if (buildings.isNotEmpty) ...[
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final b in buildings.take(8))
-                  ActionChip(label: Text(b), onPressed: () => setState(() => _destination.text = b)),
-              ],
-            ),
-            const SizedBox(height: 16),
-          ],
+          const SizedBox(height: 16),
           Text('Dự kiến tới nơi sau', style: theme.textTheme.titleSmall),
           const SizedBox(height: 8),
           Wrap(

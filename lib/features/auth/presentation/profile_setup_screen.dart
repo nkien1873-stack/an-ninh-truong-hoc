@@ -92,7 +92,6 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                 decoration: const InputDecoration(
                   labelText: 'Số điện thoại (không bắt buộc)',
                   hintText: '0912 345 678',
-                  helperText: 'Để bảo vệ gọi lại khi cần.',
                 ),
                 validator: validateOptionalPhone,
               ),

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../../core/network/api_error.dart';
+import '../../../core/widgets/form_page.dart';
 import '../../../core/widgets/state_views.dart';
 import '../../auth/presentation/profile_setup_screen.dart' show validateOptionalPhone;
 import '../../auth/application/session.dart';
@@ -53,11 +54,7 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Tài khoản')),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => showModalBottomSheet<void>(
-          context: context,
-          isScrollControlled: true,
-          builder: (_) => UserFormSheet(initialRole: role),
-        ),
+        onPressed: () => showFormPage<void>(context, title: 'Thêm tài khoản', child: UserFormSheet(initialRole: role)),
         icon: const Icon(Icons.person_add_alt_rounded),
         label: const Text('Thêm tài khoản'),
       ),
@@ -136,10 +133,10 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
                           if (u.uid == me?.uid) 'Bạn',
                         ].join(', ')),
                         trailing: const Icon(Icons.chevron_right_rounded),
-                        onTap: () => showModalBottomSheet<void>(
-                          context: context,
-                          isScrollControlled: true,
-                          builder: (_) => UserFormSheet(existing: u, isSelf: u.uid == me?.uid),
+                        onTap: () => showFormPage<void>(
+                          context,
+                          title: 'Sửa tài khoản',
+                          child: UserFormSheet(existing: u, isSelf: u.uid == me?.uid),
                         ),
                       ),
                     );
@@ -271,17 +268,11 @@ class _UserFormSheetState extends ConsumerState<UserFormSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-        child: Form(
+    return Form(
           key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(_isNew ? 'Thêm tài khoản' : 'Sửa tài khoản', style: theme.textTheme.titleLarge),
-              const SizedBox(height: 16),
               TextFormField(
                 controller: _email,
                 enabled: _isNew,
@@ -373,8 +364,6 @@ class _UserFormSheetState extends ConsumerState<UserFormSheet> {
               ],
             ],
           ),
-        ),
-      ),
-    );
+        );
   }
 }

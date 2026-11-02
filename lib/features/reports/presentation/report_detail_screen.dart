@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/format/formatters.dart';
 import '../../../core/network/api_error.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/form_page.dart';
 import '../../../core/widgets/state_views.dart';
 import '../../../core/widgets/status_chip.dart';
 import '../../admin/data/admin_repository.dart';
@@ -80,10 +81,10 @@ class _ReportDetailViewState extends ConsumerState<_ReportDetailView> {
   }
 
   Future<void> _changeStatus(ReportStatus to) async {
-    final result = await showModalBottomSheet<({String note, bool fake})>(
-      context: context,
-      isScrollControlled: true,
-      builder: (_) => _StatusNoteSheet(from: r.status, to: to, role: user.role),
+    final result = await showFormPage<({String note, bool fake})>(
+      context,
+      title: ReportStatusMachine.actionLabel(r.status, to),
+      child: _StatusNoteSheet(from: r.status, to: to, role: user.role),
     );
     if (result == null) return;
     setState(() => _busy = true);
@@ -97,11 +98,25 @@ class _ReportDetailViewState extends ConsumerState<_ReportDetailView> {
     }
   }
 
+  /// Nút chuyển sang [s]: bước hợp lý nhất là nút chính, từ chối là nút viền, còn lại nút phụ.
+  Widget _actionButton(ReportStatus s, {required bool primary}) {
+    final label = Text(ReportStatusMachine.actionLabel(r.status, s), textAlign: TextAlign.center);
+    const padding = EdgeInsets.symmetric(horizontal: 8, vertical: 10);
+    final onPressed = _busy ? null : () => _changeStatus(s);
+    if (s == ReportStatus.rejected) {
+      return OutlinedButton(style: OutlinedButton.styleFrom(padding: padding), onPressed: onPressed, child: label);
+    }
+    if (primary) {
+      return FilledButton(style: FilledButton.styleFrom(padding: padding), onPressed: onPressed, child: label);
+    }
+    return FilledButton.tonal(style: FilledButton.styleFrom(padding: padding), onPressed: onPressed, child: label);
+  }
+
   Future<void> _cancel() async {
-    final reason = await showModalBottomSheet<String>(
-      context: context,
-      isScrollControlled: true,
-      builder: (_) => _CancelSheet(report: r),
+    final reason = await showFormPage<String>(
+      context,
+      title: 'Huỷ báo cáo ${r.code}',
+      child: _CancelSheet(report: r),
     );
     if (reason == null) return;
     setState(() => _busy = true);
@@ -282,28 +297,16 @@ class _ReportDetailViewState extends ConsumerState<_ReportDetailView> {
             ),
             if (next.isNotEmpty) ...[
               const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final (i, s) in next.indexed)
-                    if (s == ReportStatus.rejected)
-                      OutlinedButton(
-                        onPressed: _busy ? null : () => _changeStatus(s),
-                        child: Text(ReportStatusMachine.actionLabel(r.status, s)),
-                      )
-                    // Bước tiếp theo hợp lý nhất là nút chính; các lựa chọn khác là nút phụ.
-                    else if (i == 0)
-                      FilledButton(
-                        onPressed: _busy ? null : () => _changeStatus(s),
-                        child: Text(ReportStatusMachine.actionLabel(r.status, s)),
-                      )
-                    else
-                      FilledButton.tonal(
-                        onPressed: _busy ? null : () => _changeStatus(s),
-                        child: Text(ReportStatusMachine.actionLabel(r.status, s)),
-                      ),
-                ],
+              // Mọi lựa chọn trên một hàng (chữ dài thì xuống dòng trong nút) để nút "Từ chối" không
+              // rơi xuống dòng dưới, bị ô nhắn tin che khi bàn phím mở.
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  spacing: 8,
+                  children: [
+                    for (final (i, s) in next.indexed) Expanded(child: _actionButton(s, primary: i == 0)),
+                  ],
+                ),
               ),
             ] else if (!canAct && r.status.isOpen)
               Padding(
@@ -434,15 +437,9 @@ class _CancelSheetState extends State<_CancelSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Padding(
-      padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + MediaQuery.viewInsetsOf(context).bottom),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+    return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Huỷ báo cáo ${widget.report.code}?', style: theme.textTheme.titleLarge),
-            const SizedBox(height: 8),
             const Text('Bảo vệ sẽ được báo là bạn đã huỷ. Báo cáo vẫn được lưu với trạng thái "Đã huỷ" để tra cứu.'),
             const SizedBox(height: 16),
             TextField(
@@ -465,9 +462,7 @@ class _CancelSheetState extends State<_CancelSheet> {
             const SizedBox(height: 8),
             TextButton(onPressed: () => Navigator.pop(context), child: const Text('Không huỷ')),
           ],
-        ),
-      ),
-    );
+        );
   }
 }
 
@@ -635,14 +630,9 @@ class _StatusNoteSheetState extends State<_StatusNoteSheet> {
   @override
   Widget build(BuildContext context) {
     final rejecting = widget.to == ReportStatus.rejected;
-    return Padding(
-      padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + MediaQuery.viewInsetsOf(context).bottom),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+    return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(ReportStatusMachine.actionLabel(widget.from, widget.to), style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 8),
           Text('Người báo sẽ nhận thông báo về trạng thái "${widget.to.label}".'),
           const SizedBox(height: 16),
           TextField(
@@ -672,8 +662,7 @@ class _StatusNoteSheetState extends State<_StatusNoteSheet> {
           const SizedBox(height: 8),
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Huỷ')),
         ],
-      ),
-    );
+      );
   }
 }
 

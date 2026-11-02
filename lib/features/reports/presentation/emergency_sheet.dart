@@ -20,17 +20,18 @@ import '../application/report_submitter.dart';
 import '../domain/report.dart';
 import 'widgets/submit_result_view.dart';
 
-/// Mở sheet khẩn cấp (chạm 1). Gửi bằng nút "Gửi cảnh báo ngay" (chạm 2). [restore] là bản nháp
+/// Mở màn khẩn cấp (chạm 1). Gửi bằng nút "Gửi cảnh báo ngay" (chạm 2). [restore] là bản nháp
 /// đang dở lần trước (người dùng bấm Home và Android đã đóng app ở nền).
+///
+/// Dùng màn toàn trang thay cho bottom sheet: Scaffold tự co lại khi bàn phím mở, còn bottom sheet
+/// trên một số máy Android (Xiaomi) bị tính khoảng bàn phím hai lần, để lại khoảng trống lớn.
 Future<void> showEmergencySheet(BuildContext context, {EmergencyDraft? restore}) async {
   unawaited(HapticFeedback.heavyImpact());
   if (!context.mounted) return;
-  await showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
+  await Navigator.of(context).push(MaterialPageRoute<void>(
+    fullscreenDialog: true,
     builder: (_) => EmergencySheet(restore: restore),
-  );
+  ));
 }
 
 class EmergencySheet extends ConsumerStatefulWidget {
@@ -174,9 +175,10 @@ class _EmergencySheetState extends ConsumerState<EmergencySheet> {
     final palette = context.palette;
     final buildings = ref.watch(campusInfoProvider).value?.buildings ?? const <String>[];
     final result = _result;
+    final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
 
-    // Nội dung cuộn ở trên, nút hành động ghim ở chân sheet để luôn thấy "Gửi cảnh báo ngay"
-    // mà không cần cuộn, kể cả trên máy màn nhỏ hoặc cỡ chữ lớn.
+    // Nội dung cuộn ở trên, nút hành động ghim ở chân màn để luôn thấy "Gửi cảnh báo ngay"
+    // mà không cần cuộn, kể cả khi bàn phím đang mở, máy màn nhỏ hoặc cỡ chữ lớn.
     final Widget body;
     final Widget footer;
     if (result != null) {
@@ -220,19 +222,6 @@ class _EmergencySheetState extends ConsumerState<EmergencySheet> {
         key: const ValueKey('form'),
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Icon(Icons.sos_rounded, color: palette.emergencyText, size: 28),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Semantics(
-                  header: true,
-                  child: Text('Báo khẩn cấp', style: theme.textTheme.titleLarge),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
           Text(
             'Cảnh báo gửi ngay tới bảo vệ trực trên ứng dụng. Các mục dưới đây không bắt buộc.',
             style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
@@ -319,53 +308,40 @@ class _EmergencySheetState extends ConsumerState<EmergencySheet> {
               ),
             ),
           ),
-          const SizedBox(height: 8),
-          const HotlineButton(),
+          // Bàn phím đang mở thì chỉ giữ nút gửi để còn chỗ cho ô đang nhập.
+          if (!keyboardOpen) ...[const SizedBox(height: 8), const HotlineButton()],
         ],
       );
     }
 
     final duration = MediaQuery.disableAnimationsOf(context) ? Duration.zero : const Duration(milliseconds: 200);
-    final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
-    // Người dùng tự đóng sheet (vuốt xuống, nút Back) thì bỏ bản nháp. App bị đóng ở nền hoặc
-    // điều hướng gỡ sheet thì không có lần "pop" này, nên bản nháp còn để mở lại.
+    // Người dùng tự đóng màn (nút X, nút Back) thì bỏ bản nháp. App bị đóng ở nền hoặc điều hướng
+    // gỡ màn này thì không có lần "pop" này, nên bản nháp còn để mở lại.
     return PopScope(
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) unawaited(ref.read(emergencyDraftStoreProvider).clear());
       },
-      child: _buildSheet(theme, body, footer, duration, keyboardOpen),
-    );
-  }
-
-  Widget _buildSheet(ThemeData theme, Widget body, Widget footer, Duration duration, bool keyboardOpen) {
-    final maxHeight = MediaQuery.sizeOf(context).height * 0.9;
-    return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: maxHeight),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Row(
+            children: [
+              Icon(Icons.sos_rounded, color: palette.emergencyText),
+              const SizedBox(width: 8),
+              Text(result == null ? 'Báo khẩn cấp' : 'Đã gửi'),
+            ],
+          ),
+        ),
+        body: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Flexible(
+            Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    AnimatedSwitcher(duration: duration, child: body),
-                    // Bàn phím mở thì không đủ chỗ ghim chân sheet (ô ghi chú bị che, tràn
-                    // màn hình): đưa nút vào phần cuộn ngay dưới ô đang nhập.
-                    if (keyboardOpen) ...[
-                      const SizedBox(height: 12),
-                      AnimatedSwitcher(duration: duration, child: footer),
-                    ],
-                  ],
-                ),
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                child: AnimatedSwitcher(duration: duration, child: body),
               ),
             ),
-            if (!keyboardOpen) Material(
-              color: theme.bottomSheetTheme.backgroundColor ?? theme.colorScheme.surfaceContainerLow,
+            Material(
+              color: theme.colorScheme.surfaceContainerLow,
               child: SafeArea(
                 top: false,
                 child: Container(

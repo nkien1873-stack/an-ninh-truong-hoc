@@ -27,6 +27,8 @@ import 'package:campus_safety/features/reports/presentation/home_screen.dart';
 import 'package:campus_safety/features/reports/presentation/my_reports_screen.dart';
 import 'package:campus_safety/features/reports/presentation/new_report_screen.dart';
 import 'package:campus_safety/features/reports/presentation/report_detail_screen.dart';
+import 'package:campus_safety/features/safety/walk_screen.dart';
+import 'package:campus_safety/features/safety/walks.dart';
 import 'package:campus_safety/features/settings/presentation/settings_screen.dart';
 import 'package:campus_safety/features/staff/presentation/incident_queue_screen.dart';
 import 'package:flutter/services.dart';
@@ -180,6 +182,7 @@ List<Override> overrides(AppUser user) => [
           ));
         },
       ),
+      myActiveWalkProvider.overrideWith((ref) => Stream.value(null)),
       staffProvider.overrideWith((ref) => Stream.value([person(UserRole.guard, 'Lê Văn Hùng', onDuty: true)])),
     ];
 
@@ -305,6 +308,40 @@ void main() {
         const ReportDetailScreen(reportId: 'M2PX'),
         user: student,
       ));
+  testWidgets('emergency keyboard', (t) {
+    // Bàn phím mở (khoảng 40% màn hình) khi đang nhập ghi chú.
+    t.view.viewInsets = const FakeViewPadding(bottom: 700);
+    return shoot(
+      t,
+      'emergency_keyboard_light',
+      shell(AppRoutes.home, const HomeScreen()),
+      user: student,
+      interact: (t) async {
+        await t.tap(find.byKey(const Key('emergency-button')));
+        await t.pump(const Duration(milliseconds: 400));
+        await t.pump(const Duration(milliseconds: 400));
+      },
+    );
+  });
+  testWidgets('detail guard received', (t) => shoot(
+        t,
+        'detail_guard_received_light',
+        const ReportDetailScreen(reportId: 'B8RT'),
+        user: guard,
+      ));
+  testWidgets('walk start', (t) => shoot(t, 'walk_start_light', const WalkScreen(), user: student));
+  testWidgets('profile page', (t) => shoot(
+        t,
+        'profile_light',
+        shell(AppRoutes.settings, const SettingsScreen()),
+        user: student,
+        interact: (t) async {
+          await t.tap(find.text('Trần Minh Khoa'));
+          await t.pump(const Duration(milliseconds: 400));
+          await t.pump(const Duration(milliseconds: 400));
+        },
+      ));
+  testWidgets('settings student', (t) => shoot(t, 'settings_student_light', shell(AppRoutes.settings, const SettingsScreen()), user: student));
   testWidgets('my reports', (t) => shoot(t, 'my_reports_light', shell(AppRoutes.myReports, const MyReportsScreen()), user: student));
   testWidgets('manage', (t) => shoot(t, 'manage_light', shell(AppRoutes.manage, const ManageScreen()), user: admin));
   testWidgets('settings guard', (t) => shoot(t, 'settings_guard_light', shell(AppRoutes.settings, const SettingsScreen()), user: guard));

@@ -21,7 +21,7 @@ void main() {
     onDuty: false,
   );
 
-  testWidgets('sinh viên không tự đổi được Sinh viên/Giảng viên trong hồ sơ', (tester) async {
+  testWidgets('hồ sơ gọn chỉ hiện họ tên; bấm vào xem đầy đủ, sửa được, không tự đổi Sinh viên/Giảng viên', (tester) async {
     tester.view.physicalSize = const Size(1200, 3000);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -41,11 +41,15 @@ void main() {
       ),
     ));
     await tester.pumpAndSettle();
-    expect(find.textContaining('Tên đăng nhập: khoa.tran'), findsOneWidget);
+    // Thẻ hồ sơ gọn: chỉ họ tên; bấm vào mới thấy đầy đủ và sửa được.
+    expect(find.text('khoa.tran'), findsNothing);
 
     await tester.tap(find.text('Trần Minh Khoa'));
     await tester.pumpAndSettle();
-    expect(find.text('Sửa hồ sơ'), findsOneWidget);
+    expect(find.text('Hồ sơ'), findsOneWidget);
+    expect(find.text('khoa.tran'), findsOneWidget);
+    expect(find.text('khoa@gmail.com'), findsOneWidget);
+    expect(find.widgetWithText(TextFormField, 'Họ và tên'), findsOneWidget);
     expect(find.byType(ChoiceChip), findsNothing);
     expect(find.textContaining('do quản trị xác nhận'), findsOneWidget);
   });

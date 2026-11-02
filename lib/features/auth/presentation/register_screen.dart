@@ -117,8 +117,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 forceErrorText: _fieldErrors['studentId'],
                 decoration: const InputDecoration(
                   labelText: 'Mã số sinh viên (MSSV)',
-                  helperText: 'Sinh viên bắt buộc nhập, mỗi MSSV một tài khoản. Bảo vệ được cấp tài khoản thì bỏ trống.',
-                  helperMaxLines: 3,
                   prefixIcon: Icon(Icons.school_outlined),
                   counterText: '',
                 ),
@@ -151,7 +149,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 decoration: const InputDecoration(
                   labelText: 'Tên đăng nhập',
                   hintText: 'vd: kien.nguyen',
-                  helperText: 'Chữ không dấu, số, dấu chấm hoặc gạch dưới; 3 đến 30 ký tự.',
                   prefixIcon: Icon(Icons.alternate_email_rounded),
                 ),
                 validator: UsernamePolicy.validate,
@@ -160,7 +157,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               PasswordField(
                 controller: _password,
                 label: 'Mật khẩu',
-                helperText: 'Ít nhất ${PasswordPolicy.minLength} ký tự, có cả chữ và số.',
                 autofillHints: const [AutofillHints.newPassword],
                 errorText: _fieldErrors['password'],
                 validator: PasswordPolicy.validate,

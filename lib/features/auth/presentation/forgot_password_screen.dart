@@ -241,7 +241,6 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
               PasswordField(
                 controller: _password,
                 label: 'Mật khẩu mới',
-                helperText: 'Ít nhất ${PasswordPolicy.minLength} ký tự, có cả chữ và số.',
                 autofillHints: const [AutofillHints.newPassword],
                 errorText: _fieldErrors['password'],
                 validator: PasswordPolicy.validate,

@@ -6,6 +6,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/network/api_error.dart';
 import '../../../core/settings/theme_mode_controller.dart';
+import '../../../core/widgets/form_page.dart';
 import '../../../core/widgets/state_views.dart';
 import '../../auth/application/session.dart';
 import '../../auth/domain/app_user.dart';
@@ -68,20 +69,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             child: ListTile(
               leading: const Icon(Icons.account_circle_outlined, size: 32),
               title: Text(user.nameOrEmail),
-              subtitle: Text([
-                if (user.username.isNotEmpty) 'Tên đăng nhập: ${user.username}',
-                if (user.studentId.isNotEmpty) 'MSSV: ${user.studentId}',
-                user.email,
-                if (user.hasPhone) user.phoneDisplay,
-                user.role.label,
-                if (user.role == UserRole.reporter) user.memberType.label,
-              ].join(', ')),
-              trailing: const Icon(Icons.edit_outlined),
-              onTap: () => showModalBottomSheet<void>(
-                context: context,
-                isScrollControlled: true,
-                builder: (_) => _EditProfileSheet(user: user),
-              ),
+              subtitle: const Text('Xem và sửa thông tin cá nhân'),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => showFormPage<void>(context, title: 'Hồ sơ', child: _EditProfileSheet(user: user)),
             ),
           ),
           const SizedBox(height: 12),
@@ -91,11 +81,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               title: const Text('Đổi mật khẩu'),
               subtitle: const Text('Cần nhập mật khẩu hiện tại.'),
               trailing: const Icon(Icons.chevron_right_rounded),
-              onTap: () => showModalBottomSheet<void>(
-                context: context,
-                isScrollControlled: true,
-                builder: (_) => const _ChangePasswordSheet(),
-              ),
+              onTap: () => showFormPage<void>(context, title: 'Đổi mật khẩu', child: const _ChangePasswordSheet()),
             ),
           ),
           if (user.role.isStaff) ...[
@@ -203,15 +189,27 @@ class _EditProfileSheetState extends ConsumerState<_EditProfileSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + MediaQuery.viewInsetsOf(context).bottom),
-      child: Form(
+    final u = widget.user;
+    final theme = Theme.of(context);
+    Widget info(IconData icon, String label, String value) => ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: Icon(icon),
+          title: Text(label, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+          subtitle: Text(value, style: theme.textTheme.bodyLarge),
+        );
+    return Form(
         key: _formKey,
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Sửa hồ sơ', style: Theme.of(context).textTheme.titleLarge),
+            if (u.username.isNotEmpty) info(Icons.alternate_email_rounded, 'Tên đăng nhập', u.username),
+            if (u.studentId.isNotEmpty) info(Icons.school_outlined, 'Mã số sinh viên', u.studentId),
+            info(Icons.mail_outline_rounded, 'Email', u.email),
+            info(
+              Icons.badge_outlined,
+              'Vai trò',
+              u.role == UserRole.reporter ? '${u.role.label}, ${u.memberType.label}' : u.role.label,
+            ),
             const SizedBox(height: 16),
             TextFormField(
               controller: _name,
@@ -229,7 +227,6 @@ class _EditProfileSheetState extends ConsumerState<_EditProfileSheet> {
               decoration: const InputDecoration(
                 labelText: 'Số điện thoại (không bắt buộc)',
                 hintText: '0912 345 678',
-                helperText: 'Để bảo vệ gọi lại khi cần.',
               ),
               validator: validateOptionalPhone,
             ),
@@ -246,8 +243,7 @@ class _EditProfileSheetState extends ConsumerState<_EditProfileSheet> {
             FilledButton(onPressed: _saving ? null : _save, child: Text(_saving ? 'Đang lưu…' : 'Lưu')),
           ],
         ),
-      ),
-    );
+      );
   }
 }
 
@@ -301,17 +297,11 @@ class _ChangePasswordSheetState extends ConsumerState<_ChangePasswordSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + MediaQuery.viewInsetsOf(context).bottom),
-      child: SingleChildScrollView(
-        child: Form(
+    return Form(
           key: _formKey,
           child: Column(
-            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text('Đổi mật khẩu', style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 16),
               PasswordField(
                 controller: _current,
                 label: 'Mật khẩu hiện tại',
@@ -322,7 +312,6 @@ class _ChangePasswordSheetState extends ConsumerState<_ChangePasswordSheet> {
               PasswordField(
                 controller: _next,
                 label: 'Mật khẩu mới',
-                helperText: 'Ít nhất ${PasswordPolicy.minLength} ký tự, có cả chữ và số.',
                 autofillHints: const [AutofillHints.newPassword],
                 errorText: _fieldErrors['newPassword'],
                 validator: PasswordPolicy.validate,
@@ -341,8 +330,6 @@ class _ChangePasswordSheetState extends ConsumerState<_ChangePasswordSheet> {
               FilledButton(onPressed: _saving ? null : _save, child: Text(_saving ? 'Đang lưu…' : 'Đổi mật khẩu')),
             ],
           ),
-        ),
-      ),
-    );
+        );
   }
 }
