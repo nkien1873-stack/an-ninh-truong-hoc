@@ -228,7 +228,7 @@ class _IncidentMapScreenState extends ConsumerState<IncidentMapScreen> {
       builder: (context) {
         final theme = Theme.of(context);
         return SafeArea(
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -270,7 +270,7 @@ class _IncidentMapScreenState extends ConsumerState<IncidentMapScreen> {
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
-      builder: (context) => SafeArea(child: _WalkDetails(walk: w)),
+      builder: (context) => SafeArea(child: SingleChildScrollView(child: _WalkDetails(walk: w))),
     );
   }
 }

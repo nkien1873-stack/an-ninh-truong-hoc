@@ -236,6 +236,7 @@ class _MenuChip<T> extends StatelessWidget {
       onSelected: (_) async {
         final result = await showModalBottomSheet<Set<T>>(
           context: context,
+          isScrollControlled: true,
           builder: (context) => _MultiSelectSheet<T>(
             title: label,
             options: options,
@@ -271,16 +272,26 @@ class _MultiSelectSheetState<T> extends State<_MultiSelectSheet<T>> {
 
   @override
   Widget build(BuildContext context) {
+    // Danh sách cuộn được, nút luôn nằm dưới: màn thấp hoặc chữ to thì không bị tràn.
     return SafeArea(
-      child: Column(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.8),
+        child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          for (final o in widget.options)
-            CheckboxListTile(
-              value: _selected.contains(o),
-              title: Text(widget.optionLabel(o)),
-              onChanged: (v) => setState(() => v == true ? _selected.add(o) : _selected.remove(o)),
+          Flexible(
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                for (final o in widget.options)
+                  CheckboxListTile(
+                    value: _selected.contains(o),
+                    title: Text(widget.optionLabel(o)),
+                    onChanged: (v) => setState(() => v == true ? _selected.add(o) : _selected.remove(o)),
+                  ),
+              ],
             ),
+          ),
           Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
@@ -302,6 +313,7 @@ class _MultiSelectSheetState<T> extends State<_MultiSelectSheet<T>> {
             ),
           ),
         ],
+        ),
       ),
     );
   }

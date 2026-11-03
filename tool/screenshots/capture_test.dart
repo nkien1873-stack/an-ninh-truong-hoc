@@ -374,4 +374,22 @@ void main() {
   testWidgets('settings guard', (t) => shoot(t, 'settings_guard_light', shell(AppRoutes.settings, const SettingsScreen()), user: guard));
   testWidgets('home text 200%', (t) => shoot(t, 'home_text200', shell(AppRoutes.home, const HomeScreen()), user: student, textScale: 2));
   testWidgets('queue text 200%', (t) => shoot(t, 'queue_text200', shell(AppRoutes.queue, const IncidentQueueScreen()), user: guard, textScale: 2));
+  // Lọc theo trạng thái ở tab "Tất cả" (6 lựa chọn): chữ to thì danh sách cuộn, nút vẫn nằm dưới.
+  for (final scale in [1.3, 2.0]) {
+    testWidgets('status filter text $scale', (t) => shoot(
+          t,
+          'status_filter_text${(scale * 100).round()}',
+          shell(AppRoutes.queue, const IncidentQueueScreen()),
+          user: guard,
+          textScale: scale,
+          interact: (t) async {
+            await t.tap(find.text('Tất cả').first);
+            await t.pump(const Duration(milliseconds: 300));
+            await t.tap(find.text('Trạng thái').first);
+            await t.pump(const Duration(milliseconds: 400));
+            await t.pump(const Duration(milliseconds: 400));
+            expect(find.text('Áp dụng'), findsOneWidget);
+          },
+        ));
+  }
 }

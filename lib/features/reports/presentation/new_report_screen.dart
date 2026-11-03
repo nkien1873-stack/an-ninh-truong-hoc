@@ -109,8 +109,8 @@ class _NewReportScreenState extends ConsumerState<NewReportScreen> {
     final fromCamera = await showModalBottomSheet<bool>(
       context: context,
       builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+        child: ListView(
+          shrinkWrap: true,
           children: [
             ListTile(
               leading: const Icon(Icons.photo_camera_rounded),
