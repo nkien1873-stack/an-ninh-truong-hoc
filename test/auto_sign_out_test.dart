@@ -37,7 +37,12 @@ void main() {
     return c.read(sessionProvider);
   }
 
-  test('bị khoá hoặc bị xoá thì phiên "locked" (app tự đăng xuất); lỗi mạng thì không', () {
+  test('vừa đăng nhập, hồ sơ chưa tải xong (còn rỗng) thì đang tải, KHÔNG tự đăng xuất', () {
+    expect(sessionWith(const AsyncData(null)), isA<SessionLoading>());
+    expect(sessionWith(const AsyncLoading<AppUser?>()), isA<SessionLoading>());
+  });
+
+  test('bị khoá thì phiên "locked" (app tự đăng xuất); lỗi mạng thì không', () {
     Matcher blocked({required bool locked}) =>
         isA<SessionBlocked>().having((s) => s.locked, 'locked', locked);
 
@@ -46,7 +51,6 @@ void main() {
       blocked(locked: true),
     );
     expect(sessionWith(AsyncData(_user(active: false))), blocked(locked: true));
-    expect(sessionWith(const AsyncData(null)), blocked(locked: true), reason: 'tài khoản đã bị xoá');
     expect(sessionWith(AsyncError(ApiError.network(), StackTrace.empty)), blocked(locked: false));
     expect(sessionWith(AsyncData(_user())), isA<SessionReady>());
   });

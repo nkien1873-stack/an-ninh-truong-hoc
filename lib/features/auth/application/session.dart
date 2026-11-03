@@ -64,12 +64,10 @@ final sessionProvider = Provider<Session>((ref) {
   }
   if (!profile.hasValue) return const SessionLoading();
   final user = profile.value;
-  if (user == null) {
-    return const SessionBlocked(
-      'Tài khoản không còn tồn tại (có thể đã bị quản trị xoá). Hãy đăng ký lại.',
-      locked: true,
-    );
-  }
+  // Rỗng là hồ sơ chưa tải xong: ngay sau khi đăng nhập, provider còn giữ giá trị rỗng của lúc chưa
+  // đăng nhập. Không được coi là "bị xoá" (sẽ tự đăng xuất nhầm). Tài khoản bị xoá thật thì backend
+  // trả 401 và app tự đăng xuất qua ApiClient.onSessionExpired.
+  if (user == null) return const SessionLoading();
   if (!user.active) {
     return const SessionBlocked('Tài khoản đã bị khoá. Liên hệ quản trị để được hỗ trợ.', locked: true);
   }
