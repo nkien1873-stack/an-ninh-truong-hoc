@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../../core/firebase/firebase_providers.dart';
 import '../../../core/network/api_error.dart';
 import '../../../core/router/role_navigation.dart';
 import '../../../core/widgets/state_views.dart';
@@ -33,6 +34,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   Future<void> _submit() async {
     setState(() => _error = null);
+    ref.read(signOutNoticeProvider.notifier).clear();
     if (!_formKey.currentState!.validate()) return;
     setState(() => _busy = true);
     try {
@@ -50,6 +52,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final notice = ref.watch(signOutNoticeProvider);
     return AuthScaffold(
       title: 'Đăng nhập',
       subtitle: 'Chào mừng bạn quay lại.',
@@ -67,6 +70,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              if (notice != null) ...[
+                InlineError(notice),
+                const SizedBox(height: 16),
+              ],
               TextFormField(
                 controller: _username,
                 textInputAction: TextInputAction.next,

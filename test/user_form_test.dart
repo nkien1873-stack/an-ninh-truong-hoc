@@ -24,7 +24,7 @@ class _RecordingAdmin implements AdminRepository {
     int? fakeReports,
     int? failedLogins,
   }) async {
-    updated = {'role': role, 'active': active, 'memberType': memberType, 'failedLogins': failedLogins};
+    updated = {'role': role, 'active': active, 'memberType': memberType, 'fakeReports': fakeReports, 'failedLogins': failedLogins};
     return _user();
   }
 
@@ -84,52 +84,78 @@ void main() {
     expect(find.text('Đối tượng'), findsOneWidget);
   });
 
-  testWidgets('một dòng "Số lần cảnh báo" = số lần đăng nhập sai; chỉnh bằng trừ/cộng rồi lưu', (tester) async {
-    await pump(tester, form(_user(failedLogins: 2)));
+  bool lockOn(WidgetTester t) => t.widget<SwitchListTile>(find.byKey(const Key('lock-account'))).value;
+  bool lockEnabled(WidgetTester t) => t.widget<SwitchListTile>(find.byKey(const Key('lock-account'))).onChanged != null;
+
+  Future<void> tapKey(WidgetTester t, String key, [int times = 1]) async {
+    for (var i = 0; i < times; i++) {
+      await t.tap(find.byKey(Key(key)));
+      await t.pump();
+    }
+  }
+
+  testWidgets('"Số lần cảnh báo" là số lần báo tin giả (0 đến 3); lên 3 thì tự bật khoá và không tắt được', (tester) async {
+    await pump(tester, form(_user(fake: 1)));
     expect(find.text('Số lần cảnh báo'), findsOneWidget);
-    expect(find.text('Đăng nhập sai liên tiếp'), findsNothing, reason: 'đã gộp vào một dòng');
-    expect(find.text('2/5'), findsOneWidget);
+    expect(find.text('1/3'), findsOneWidget);
+    expect(lockOn(tester), isFalse);
 
-    for (var i = 0; i < 2; i++) {
-      await tester.tap(find.byKey(const Key('warning-minus')));
-      await tester.pump();
-    }
-    expect(find.text('0/5'), findsOneWidget);
-    expect(tester.widget<IconButton>(find.byKey(const Key('warning-minus'))).onPressed, isNull, reason: 'không xuống dưới 0');
-
-    for (var i = 0; i < 5; i++) {
-      await tester.tap(find.byKey(const Key('warning-plus')));
-      await tester.pump();
-    }
-    expect(find.text('5/5'), findsOneWidget);
-    expect(tester.widget<IconButton>(find.byKey(const Key('warning-plus'))).onPressed, isNull, reason: 'không vượt 5');
-    expect(find.text('Đủ 5 lần: tạm khoá đăng nhập 15 phút.'), findsOneWidget);
+    await tapKey(tester, 'warning-plus', 2);
+    expect(find.text('3/3'), findsOneWidget);
+    expect(tester.widget<IconButton>(find.byKey(const Key('warning-plus'))).onPressed, isNull, reason: 'không vượt 3');
+    expect(lockOn(tester), isTrue, reason: 'đủ 3 cảnh báo thì tự bật khoá');
+    expect(lockEnabled(tester), isFalse, reason: 'đang 3 cảnh báo thì không tắt khoá được');
+    expect(find.textContaining('Giảm số lần cảnh báo xuống dưới 3'), findsOneWidget);
 
     await tester.tap(find.text('Lưu thay đổi'));
     await tester.pumpAndSettle();
-    expect(admin.updated!['failedLogins'], 5);
+    expect(admin.updated!['fakeReports'], 3);
+    expect(admin.updated!['active'], isFalse);
   });
 
-  testWidgets('đang tạm khoá vì sai mật khẩu 5 lần: hiện 5/5, giờ hết khoá, bấm mở khoá là về 0', (tester) async {
-    await pump(tester, form(_user(lockedUntil: DateTime(2026, 11, 2, 23, 15))));
-    expect(find.text('5/5'), findsOneWidget);
-    expect(find.textContaining('Đang tạm khoá đăng nhập tới 23:15'), findsOneWidget);
+  testWidgets('muốn mở khoá phải giảm cảnh báo xuống dưới 3 rồi mới tắt được khoá', (tester) async {
+    await pump(tester, form(_user(fake: 3, active: false)));
+    expect(lockOn(tester), isTrue);
+    expect(lockEnabled(tester), isFalse);
 
+    await tapKey(tester, 'warning-minus');
+    expect(find.text('2/3'), findsOneWidget);
+    expect(lockOn(tester), isTrue, reason: 'giảm cảnh báo không tự mở khoá');
+    expect(lockEnabled(tester), isTrue);
+
+    await tester.tap(find.byKey(const Key('lock-account')));
+    await tester.pump();
+    expect(lockOn(tester), isFalse);
+    await tester.tap(find.text('Lưu thay đổi'));
+    await tester.pumpAndSettle();
+    expect(admin.updated!['fakeReports'], 2);
+    expect(admin.updated!['active'], isTrue);
+  });
+
+  testWidgets('bật khoá tay khi chưa đủ cảnh báo', (tester) async {
+    await pump(tester, form(_user()));
+    await tester.tap(find.byKey(const Key('lock-account')));
+    await tester.pump();
+    await tester.tap(find.text('Lưu thay đổi'));
+    await tester.pumpAndSettle();
+    expect(admin.updated!['active'], isFalse);
+  });
+
+  testWidgets('tạm khoá vì sai mật khẩu 5 lần là việc riêng: có nút mở khoá đăng nhập', (tester) async {
+    await pump(tester, form(_user(lockedUntil: DateTime(2026, 11, 2, 23, 15))));
+    expect(find.textContaining('Đang tạm khoá đăng nhập tới 23:15'), findsOneWidget);
     await tester.tap(find.byKey(const Key('unlock-login')));
     await tester.pumpAndSettle();
     expect(admin.updated!['failedLogins'], 0);
-    expect(find.text('0/5'), findsOneWidget);
     expect(find.byKey(const Key('unlock-login')), findsNothing);
-    expect(find.text('Đã mở khoá đăng nhập.'), findsOneWidget);
   });
 
-  testWidgets('bảo vệ, quản trị không có dòng cảnh báo nhưng vẫn mở khoá được khi bị tạm khoá', (tester) async {
-    await pump(tester, form(_user(lockedUntil: DateTime(2026, 11, 2, 23, 15))));
+  testWidgets('bảo vệ, quản trị không có dòng cảnh báo', (tester) async {
+    await pump(tester, form(_user()));
     expect(find.byKey(const Key('warning-count')), findsOneWidget);
     await tester.tap(find.text('Bảo vệ'));
     await tester.pump();
     expect(find.byKey(const Key('warning-count')), findsNothing);
-    expect(find.byKey(const Key('unlock-login')), findsOneWidget);
   });
 
   testWidgets('khu vực: thêm, chặn trùng, xoá từng mục rồi lưu', (tester) async {

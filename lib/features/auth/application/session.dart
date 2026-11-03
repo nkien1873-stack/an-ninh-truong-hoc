@@ -30,9 +30,12 @@ class SessionReady extends Session {
 
 /// Đã đăng nhập nhưng tài khoản bị khoá hoặc không tìm thấy hồ sơ.
 class SessionBlocked extends Session {
-  const SessionBlocked(this.message);
+  const SessionBlocked(this.message, {this.locked = false});
 
   final String message;
+
+  /// Tài khoản bị khoá hoặc đã bị xoá (không phải lỗi mạng): app tự đăng xuất khỏi máy này.
+  final bool locked;
 }
 
 /// Hồ sơ người đang đăng nhập, tải từ backend và làm mới định kỳ.
@@ -54,7 +57,7 @@ final sessionProvider = Provider<Session>((ref) {
   final profile = ref.watch(currentUserProvider);
   // Backend từ chối (403) tức là quản trị vừa khoá tài khoản.
   if (profile.error case ApiError(statusCode: 403)) {
-    return const SessionBlocked('Tài khoản đã bị khoá. Liên hệ quản trị để được hỗ trợ.');
+    return const SessionBlocked('Tài khoản đã bị khoá. Liên hệ quản trị để được hỗ trợ.', locked: true);
   }
   if (profile.hasError && !profile.hasValue) {
     return const SessionBlocked('Không tải được hồ sơ. Kiểm tra mạng hoặc đăng nhập lại.');
@@ -63,10 +66,13 @@ final sessionProvider = Provider<Session>((ref) {
   final user = profile.value;
   if (user == null) {
     return const SessionBlocked(
-      'Tài khoản không còn tồn tại (có thể đã bị quản trị xoá). Hãy đăng xuất rồi đăng ký lại.',
+      'Tài khoản không còn tồn tại (có thể đã bị quản trị xoá). Hãy đăng ký lại.',
+      locked: true,
     );
   }
-  if (!user.active) return const SessionBlocked('Tài khoản đã bị khoá. Liên hệ quản trị để được hỗ trợ.');
+  if (!user.active) {
+    return const SessionBlocked('Tài khoản đã bị khoá. Liên hệ quản trị để được hỗ trợ.', locked: true);
+  }
   return SessionReady(user);
 });
 
