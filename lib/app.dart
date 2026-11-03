@@ -65,7 +65,7 @@ class _CampusSafetyAppState extends ConsumerState<CampusSafetyApp> with WidgetsB
         }
       } else if (next is SessionSignedOut) {
         _registeredUid = null;
-      } else if (next is SessionBlocked && next.locked && previous is! SessionBlocked) {
+      } else if (next is SessionBlocked && shouldAutoSignOut(previous, next)) {
         // Bị khoá (hoặc bị xoá) khi đang dùng: đăng xuất khỏi máy này, huỷ nhận thông báo, về trang
         // đăng nhập kèm lý do.
         ref.read(signOutNoticeProvider.notifier).set('${next.message} Bạn đã được đăng xuất khỏi máy này.');

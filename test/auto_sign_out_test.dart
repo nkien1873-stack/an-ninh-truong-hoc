@@ -55,6 +55,15 @@ void main() {
     expect(sessionWith(AsyncData(_user())), isA<SessionReady>());
   });
 
+  test('đang lỗi mạng rồi mới biết bị khoá vẫn tự đăng xuất, nhưng chỉ một lần', () {
+    const network = SessionBlocked('mạng');
+    const locked = SessionBlocked('khoá', locked: true);
+    expect(shouldAutoSignOut(const SessionLoading(), locked), isTrue);
+    expect(shouldAutoSignOut(network, locked), isTrue);
+    expect(shouldAutoSignOut(locked, locked), isFalse);
+    expect(shouldAutoSignOut(const SessionLoading(), network), isFalse);
+  });
+
   test('lời nhắn đăng xuất: giữ lời nhắn cụ thể hơn khi lỗi 401 tới sau', () {
     final c = ProviderContainer();
     addTearDown(c.dispose);

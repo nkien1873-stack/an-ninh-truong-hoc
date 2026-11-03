@@ -38,6 +38,10 @@ class SessionBlocked extends Session {
   final bool locked;
 }
 
+/// Phiên vừa chuyển sang "bị khoá" (kể cả khi trước đó đang báo lỗi mạng): app phải tự đăng xuất.
+bool shouldAutoSignOut(Session? previous, Session next) =>
+    next is SessionBlocked && next.locked && !(previous is SessionBlocked && previous.locked);
+
 /// Hồ sơ người đang đăng nhập, tải từ backend và làm mới định kỳ.
 final currentUserProvider = StreamProvider<AppUser?>((ref) {
   final authUser = ref.watch(authStateProvider).value;
